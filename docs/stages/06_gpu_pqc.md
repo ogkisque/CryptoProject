@@ -79,6 +79,35 @@ tests/gpu/gpu_pqc_test.cpp           # на устройстве; GTEST_SKIP б�
 | 2026-10-16 | План пересмотрен: SDK и CUDA здесь не ставятся; API cuPQC — по публичной документации с пометками `UNVERIFIED`; сборка и запуск — на GPU-машине автором (`docs/gpu_workflow.md`) |
 | 2026-10-16 | **Часть А готова.** 6.A0 выполнена по документации и официальным примерам cuPQC; код написан без компиляции с cuPQC. Детали ниже. |
 
+### Ревью (2026-10-16)
+
+**Сверка с первоисточниками.** Ревьюер независимо скачал официальные примеры [`example_ml_kem.cu`, `example_ml_dsa.cu`, `Makefile`](https://github.com/NVIDIA/cuPQC/tree/main/examples/public_key) и страницу [Getting Started](https://docs.nvidia.com/cuda/cupqc/introduction/getting_started.html) и сверил:
+- порядок аргументов всех шести `execute` (keygen/encaps/decaps, keygen/sign/verify) — совпадает;
+- шаг подписи `(signature_size + 7) / 8 * 8` и `bool` для результата verify — совпадает;
+- `make_workspace` / `get_entropy` / `destroy_workspace` / `release_entropy` — совпадает;
+- CMake: `find_package(cupqc)` с `CMAKE_PREFIX_PATH=<SDK>/cmake`, цель `cupqc-pk_static`; заголовок `pk.hpp` в `include/cupqc`, commondx в `include` — совпадает;
+- в примерах shared memory статическая (`__shared__ smem[shared_memory_size]`, ML-DSA-44); наш вариант с динамической shared memory и opt-in работает и для > 48 КиБ, это корректное обобщение.
+
+**Логика калибровки context string проверена рассуждением.** Подпись cuPQC над `X = 00 00 || M`:
+- если cuPQC подписывает вход как M' (internal), liboqs примет её как pure-подпись `M` с пустым ctx → `Internal`;
+- если cuPQC сам оборачивает вход (pure, пустой ctx), liboqs примет её как подпись `X` → `PureEmptyContext`;
+- обратное направление (liboqs-подпись с manifest-ctx → GPU verify) и отказ на испорченной подписи проверяются отдельно.
+
+Ошибок в криптографической логике и в обнулении секретов не найдено: порядок деструкторов `BufGuard` / `LibWorkspace` / `LibEntropy` корректен, синхронизация stream'а перед обнулением и освобождением есть и на пути исключения.
+
+| # | Находка | Исправление |
+|---|---|---|
+| R1 | **Флаги LTO не в задокументированной форме.** NVIDIA везде собирает cuPQC как `nvcc -dlto -arch=sm_XY` (Getting Started, Makefile примеров). У нас `-dlto` смешивался с `--generate-code=arch=compute_86,code=[compute_86,sm_86]`, который CMake генерирует из `CUDA_ARCHITECTURES`; такая комбинация не задокументирована и — самое вероятное место сбоя device-link | при cuPQC `CUDA_ARCHITECTURES OFF`, компиляция и device-link получают ровно `-arch=sm_${VAULT_CUDA_ARCH} -dlto` (или `-arch=native` при `VAULT_CUDA_ARCH=native`). Без cuPQC (этап 5) — как раньше. Синтаксис `Cuda.cmake` проверен `cmake -P` |
+| R2 | Все H2D/D2H шли через `cudaMemcpy2DAsync`, даже когда шаг равен ширине (ключи, шифртексты, секреты). 2D-копия pageable-памяти с тысячами коротких строк может быть заметно медленнее 1D и исказила бы `h2d_ms`/`d2h_ms` в PQC-матрице | при `pitch == width` — обычная `cudaMemcpyAsync`; 2D только там, где padding действительно есть (подписи 3309 → 3312, сообщения M') |
+| R3 | В encaps и sign `get_entropy` вызывался после постановки H2D-копий в stream, а `LibEntropy::acquire` синхронизирует stream — `entropy_ms` включал время копирования | entropy готовится до H2D |
+| R4 | Калибровка ML-DSA выполняется при первом sign/verify; при `warmup_runs: 0` она (CPU keygen + GPU sign/verify) попадала бы в первый замер | benchmark перед замерами ML-DSA делает одну неизмеряемую проверку (заведомо неверная подпись) — калибровка проходит вне замера |
+
+**Принято как есть (для отчёта):**
+* `pool_buffers: true` не убирает аллокации cuPQC: workspace и entropy выделяет сама библиотека на каждый вызов (`make_workspace` / `get_entropy`), они входят в `alloc_ms` / `entropy_ms` и при пуле.
+* `.cu` компилируются как C++20 (std::span в заголовках проекта), а NVIDIA собирает примеры с `-std=c++17`. Если `pk.hpp` не соберётся в C++20 — это первая ошибка, которую стоит прислать; лечится выносом PQC-kernel'ов в отдельный TU без заголовков проекта.
+
+Итого тестов: 225, Release и ASan/UBSan зелёные, `scripts/check_cuda_syntax.sh` — ok.
+
 ### 6.A0. Разведка API cuPQC (по публичной документации)
 
 Источники: [Requirements](https://docs.nvidia.com/cuda/cupqc/introduction/requirements.html), [Getting Started](https://docs.nvidia.com/cuda/cupqc/introduction/getting_started.html), [cuPQC-PK Features](https://docs.nvidia.com/cuda/cupqc/libraries/cupqc_pk/cupqc_pk_feature.html), [Operators](https://docs.nvidia.com/cuda/cupqc/libraries/cupqc_pk/api/operators.html), [Traits](https://docs.nvidia.com/cuda/cupqc/libraries/cupqc_pk/api/traits.html), [Device Functions](https://docs.nvidia.com/cuda/cupqc/libraries/cupqc_pk/api/device.html), [Host Functions](https://docs.nvidia.com/cuda/cupqc/libraries/cupqc_pk/api/host.html), [Release Notes](https://docs.nvidia.com/cuda/cupqc/additional/release_notes.html), а также официальные примеры [`examples/public_key/example_ml_kem.cu`, `example_ml_dsa.cu` и `Makefile`](https://github.com/NVIDIA/cuPQC/tree/main/examples/public_key) (NVIDIA/cuPQC, Apache-2.0) — по ним сверены порядок аргументов и раскладка буферов.

@@ -127,10 +127,11 @@ public:
         d_pk_.reserve(n * D::public_key_size, &tb.alloc_ms);
         d_ct_.reserve(n * D::ciphertext_size, &tb.alloc_ms);
         d_ss_.reserve(n * D::shared_secret_size, &tb.alloc_ms);
+        // Entropy — до H2D: LibEntropy::acquire синхронизирует stream, и иначе entropy_ms включал бы копирование.
+        std::uint8_t* entropy = prepare_entropy<D>(n, seeds, kMlKem768EncapsSeedSize, lib_ent, t, tb);
         t.h2d_begin();
         pqc::h2d_rows(d_pk_.get(), D::public_key_size, pks, D::public_key_size, n, st);
         t.h2d_end();
-        std::uint8_t* entropy = prepare_entropy<D>(n, seeds, kMlKem768EncapsSeedSize, lib_ent, t, tb);
 
         pqc::ensure_smem(&kem_encaps_kernel<D>, D::shared_memory_size, ctx_.options().device, "kem_encaps_kernel");
         t.kernel_begin();

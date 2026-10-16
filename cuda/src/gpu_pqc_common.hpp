@@ -148,13 +148,22 @@ void ensure_smem(Kernel* kernel, std::size_t bytes, int device, const char* name
 }
 
 // Копирование плотного массива из host в строки device с шагом dst_pitch (padding) и обратно.
+// При шаге, равном ширине (ключи, шифртексты, секреты — все кратны 8), это обычная 1D-копия: 2D-копия из
+// pageable-памяти с тысячами коротких строк может быть заметно медленнее и исказила бы h2d/d2h в замерах.
+// 2D остаётся только там, где padding действительно есть (подписи 3309 -> 3312, сообщения с M').
 inline void h2d_rows(void* dst, std::size_t dst_pitch, const void* src, std::size_t width, std::size_t rows, cudaStream_t s) {
     if (width == 0 || rows == 0) return;
-    CUDA_CHECK(cudaMemcpy2DAsync(dst, dst_pitch, src, width, width, rows, cudaMemcpyHostToDevice, s));
+    if (dst_pitch == width)
+        CUDA_CHECK(cudaMemcpyAsync(dst, src, width * rows, cudaMemcpyHostToDevice, s));
+    else
+        CUDA_CHECK(cudaMemcpy2DAsync(dst, dst_pitch, src, width, width, rows, cudaMemcpyHostToDevice, s));
 }
 inline void d2h_rows(void* dst, const void* src, std::size_t src_pitch, std::size_t width, std::size_t rows, cudaStream_t s) {
     if (width == 0 || rows == 0) return;
-    CUDA_CHECK(cudaMemcpy2DAsync(dst, width, src, src_pitch, width, rows, cudaMemcpyDeviceToHost, s));
+    if (src_pitch == width)
+        CUDA_CHECK(cudaMemcpyAsync(dst, src, width * rows, cudaMemcpyDeviceToHost, s));
+    else
+        CUDA_CHECK(cudaMemcpy2DAsync(dst, width, src, src_pitch, width, rows, cudaMemcpyDeviceToHost, s));
 }
 
 // Секретный device-буфер: обнуляется перед освобождением/возвратом в пул (§43).

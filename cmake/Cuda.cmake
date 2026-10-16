@@ -50,12 +50,7 @@ function(vault_attach_cuda target)
       if(_have_cupqc)
         # pk.hpp лежит в include/cupqc, а зависимость commondx — в include (по Getting Started).
         target_include_directories(${target} PRIVATE ${CUPQC_ROOT}/include/cupqc ${CUPQC_ROOT}/include)
-        # cuPQC-PK собран с link-time optimization: нужен -dlto при компиляции И при device-link.
-        # UNVERIFIED(cuPQC): совместимость -dlto с CUDA_SEPARABLE_COMPILATION и CUDA_ARCHITECTURES=86 (CMake генерирует
-        # -gencode arch=compute_86,code=[compute_86,sm_86]); официальные примеры собираются с `-dlto -arch=native`.
-        # Если device-link падает с ошибкой про LTO IR — сконфигурировать с -DVAULT_CUDA_ARCH=native.
-        target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-dlto>)
-        target_link_options(${target} PUBLIC $<DEVICE_LINK:-dlto>)
+        # Флаги LTO (-dlto -arch=sm_XY) выставляются ниже, после set_target_properties.
       endif()
     endif()
   endif()
@@ -85,6 +80,23 @@ function(vault_attach_cuda target)
   # (состояние Keccak с динамической индексацией уходит в local memory), а проверить его можно только по build.log.
   if(VAULT_CUDA_PTXAS_VERBOSE)
     target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>)
+  endif()
+  if(_have_cupqc)
+    # cuPQC-PK собран с link-time optimization. NVIDIA документирует ровно одну форму сборки
+    # (Getting Started, Makefile примеров): `nvcc -dlto -arch=sm_XY` — и при компиляции, и при device-link.
+    # CUDA_ARCHITECTURES превратился бы в --generate-code=arch=compute_86,code=[compute_86,sm_86], и смешивание
+    # этого с -dlto не задокументировано. Поэтому при cuPQC архитектура задаётся явно той же парой флагов, а
+    # CUDA_ARCHITECTURES выключается. VAULT_CUDA_ARCH=native -> -arch=native (как в Makefile примеров).
+    # UNVERIFIED(cuPQC): device-link статической библиотеки с CUDA_RESOLVE_DEVICE_SYMBOLS вместе с cupqc-pk_static.
+    if(VAULT_CUDA_ARCH STREQUAL "native")
+      set(_arch_flag "-arch=native")
+    else()
+      set(_arch_flag "-arch=sm_${VAULT_CUDA_ARCH}")
+    endif()
+    set_target_properties(${target} PROPERTIES CUDA_ARCHITECTURES OFF)
+    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${_arch_flag} -dlto>)
+    target_link_options(${target} PUBLIC $<DEVICE_LINK:${_arch_flag}> $<DEVICE_LINK:-dlto>)
+    message(STATUS "cuPQC: device-код собирается как в документации NVIDIA: ${_arch_flag} -dlto")
   endif()
   target_link_libraries(${target} PUBLIC CUDA::cudart)
 endfunction()

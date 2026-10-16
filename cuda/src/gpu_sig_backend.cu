@@ -126,11 +126,12 @@ public:
         d_sk_.reserve(n * D::secret_key_size, &tb.alloc_ms);
         d_msg_.reserve(n * std::max<std::size_t>(mstride, 8), &tb.alloc_ms);
         d_sig_.reserve(n * kSigStride, &tb.alloc_ms);
+        // Entropy — до H2D: LibEntropy::acquire синхронизирует stream, и иначе entropy_ms включал бы копирование.
+        std::uint8_t* entropy = prepare_entropy<D>(n, rnds, kMlDsa65SignRandSize, lib_ent, t, tb);
         t.h2d_begin();
         pqc::h2d_rows(d_sk_.get(), D::secret_key_size, sks, D::secret_key_size, n, st);
         pqc::h2d_rows(d_msg_.get(), mstride, msgs, msize, n, st);  // строки с padding до 8
         t.h2d_end();
-        std::uint8_t* entropy = prepare_entropy<D>(n, rnds, kMlDsa65SignRandSize, lib_ent, t, tb);
 
         pqc::ensure_smem(&dsa_sign_kernel<D>, D::shared_memory_size, ctx_.options().device, "dsa_sign_kernel");
         t.kernel_begin();

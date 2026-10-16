@@ -302,6 +302,14 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                 for_each_backend(op, Component::Sig, op == BenchOp::MlDsaKeygen ? 0 : kDsaMessageSize, batch, [&](NamedBackend& nb) {
                     crypto::SigBatch sb;
                     Samples s;
+                    if (op != BenchOp::MlDsaKeygen) {
+                        // Разовая подготовка backend'а вне замеров: GPU ML-DSA при первом sign/verify калибрует режим
+                        // context string (CPU keygen + GPU sign/verify). При warmup_runs = 0 она попала бы в первый
+                        // замер. Одиночная проверка заведомо неверной подписи — дешёвый способ её вызвать.
+                        const Bytes zero_sig(kMlDsa65SignatureSize, 0);
+                        (void)nb.backends->sig->verify(ByteView(prep.public_keys).subspan(0, kMlDsa65PublicKeySize),
+                                                       ByteView(prep.messages).subspan(0, kDsaMessageSize), dsa_ctx, zero_sig);
+                    }
                     if (op == BenchOp::MlDsaKeygen) {
                         s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->sig->keygen_batch(batch, std::nullopt, sb, &tb); });
                         require(sb.count == batch && sig_pair_works(*ref.sig, sb, 0) && sig_pair_works(*ref.sig, sb, batch - 1),
