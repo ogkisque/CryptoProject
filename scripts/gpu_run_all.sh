@@ -106,6 +106,12 @@ elif [ "$HAVE_NVCC" = 1 ]; then
   if [ -n "$CUPQC_ROOT" ]; then
     if run_step 01_build_cuda_cupqc build_in build/gpu -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH="${VAULT_CUDA_ARCH:-86}" -DCUPQC_ROOT="$CUPQC_ROOT" -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
       built=1; BUILD_DIR=build/gpu; BUILD_MODE="cuda + cuPQC"; HAVE_CUPQC=1
+    elif [ "${VAULT_CUDA_ARCH:-86}" != native ]; then
+      # Самый вероятный сбой с cuPQC — device-link с LTO (ревью этапа 6). Официальные примеры NVIDIA собираются с
+      # -arch=native: пробуем так, прежде чем отказываться от cuPQC (лог первой попытки остаётся в архиве).
+      if run_step 01_build_cuda_cupqc_native build_in build/gpu_native -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH=native -DCUPQC_ROOT="$CUPQC_ROOT" -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
+        built=1; BUILD_DIR=build/gpu_native; BUILD_MODE="cuda + cuPQC (-arch=native)"; HAVE_CUPQC=1
+      fi
     fi
   else
     record 01_build_cuda_cupqc skipped "CUPQC_ROOT не задан"
@@ -139,11 +145,15 @@ USE_GPU=0
 case "$BUILD_MODE" in cuda*) [ "$HAVE_GPU" = 1 ] && USE_GPU=1 ;; esac
 [ "$USE_GPU" = 0 ] && echo "GPU-режим выключен (сборка: $BUILD_MODE, устройство: $HAVE_GPU)"
 
-# Флаги Release для воспроизводимости: -march=native в замерах недопустим (§49, docs/gpu_workflow.md)
+# Флаги для воспроизводимости: замеры только в Release и без -march=native (§49, docs/gpu_workflow.md).
+# Тип сборки проверяется явно: флаги CMAKE_CXX_FLAGS_RELEASE лежат в кэше и у Debug-сборки.
+BUILD_TYPE="$(grep -E '^CMAKE_BUILD_TYPE:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2)"
 if grep -qE 'CMAKE_CXX_FLAGS[^=]*=.*-march=native' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null; then
   record 01a_flags fail "в CMAKE_CXX_FLAGS стоит -march=native: результаты не воспроизводимы на другой машине"
+elif [ "$BUILD_TYPE" != Release ]; then
+  record 01a_flags fail "тип сборки '${BUILD_TYPE:-не задан}', а не Release: замеры не годятся для отчёта"
 else
-  record 01a_flags ok "$(grep -E '^CMAKE_CXX_FLAGS_RELEASE:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2)"
+  record 01a_flags ok "Release: $(grep -E '^CMAKE_CXX_FLAGS_RELEASE:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2)"
 fi
 # Регистры/spill'ы kernel'ов (ptxas -v) отдельным файлом — главный риск производительности
 [ -f "$LOGS/01_build_cuda_cupqc.log" ] || [ -f "$LOGS/01_build_cuda_nopqc.log" ] && \
@@ -181,9 +191,11 @@ smoke() {
   "${V[@]}" --backend "$other" verify
   "${V[@]}" --backend "$other" add "$d/in.bin" >/dev/null
   "${V[@]}" --backend "$backend" verify
-  # порча подписи -> код 2 на обоих
+  # порча подписи -> код 2 на обоих. Байт инвертируется (а не затирается константой): запись 0x00 поверх
+  # байта, который уже равен 0, не меняла бы подпись, и шаг падал бы ложно примерно в 1 из 256 запусков.
   sig=$(ls "$d"/v/generations/*/manifest.sig | tail -1)
-  printf '\x00' | dd of="$sig" bs=1 seek=100 conv=notrunc 2>/dev/null
+  b=$(od -An -tu1 -j100 -N1 "$sig" | tr -d ' ')
+  printf "$(printf '\\%03o' $(( b ^ 255 )))" | dd of="$sig" bs=1 seek=100 conv=notrunc 2>/dev/null
   set +e
   "${V[@]}" --backend "$backend" verify; [ $? -eq 2 ]
   local r1=$?

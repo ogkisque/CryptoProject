@@ -34,11 +34,25 @@ def statuses(run_dir: Path) -> dict[str, str]:
     return out
 
 
+def build_type(build_dir: str) -> str:
+    cache = Path(build_dir) / "CMakeCache.txt"
+    if not cache.is_file():
+        return ""
+    for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("CMAKE_BUILD_TYPE:"):
+            return line.split("=", 1)[1].strip()
+    return ""
+
+
 @pytest.mark.skipif(not REAL_VAULT.exists(), reason="нужна CPU-сборка build/cpu (scripts/build_cpu.sh)")
 def test_cpu_mode_quick_run_reaches_the_end(tmp_path):
     p, run, results = run_script(tmp_path, "--quick")
-    assert p.returncode == 0, p.stdout + p.stderr
     st = statuses(run)
+    # Замеры годятся только из Release: на Debug-сборке (например, ASan) шаг 01a_flags обязан быть fail,
+    # и тогда код возврата 1 — это правильное поведение, а не сбой сценария.
+    release = build_type(DEFAULT_BUILD) == "Release"
+    assert st["01a_flags"] == ("ok" if release else "fail")
+    assert p.returncode == (0 if release else 1), p.stdout + p.stderr
     assert st["03a_smoke_cpu"] == "ok"
     assert st["03b_smoke_gpu"] == "skipped" and st["03c_smoke_gpu_to_cpu"] == "skipped"
     assert st["04_bench_quick"] == "ok" and st["06_analyze"] == "ok"
