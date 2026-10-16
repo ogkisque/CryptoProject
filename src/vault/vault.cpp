@@ -17,6 +17,14 @@ namespace vault {
 
 namespace {
 
+// Единственное место выбора реализации хранилищ (этап 3: FlatStorage -> GenerationStorage).
+std::unique_ptr<storage::IStorageBackend> make_storage(const VaultPaths& p) {
+    return storage::make_flat_storage(p.vault_dir);
+}
+std::unique_ptr<storage::ITrustedStorage> make_trusted(const VaultPaths& p) {
+    return storage::make_file_trusted_storage(p.trusted_dir);
+}
+
 struct SignedManifest {
     encoding::ManifestV1 manifest;
     Bytes encoded;
@@ -82,8 +90,8 @@ Vault::~Vault() = default;
 void Vault::init(const VaultPaths& paths, const crypto::CryptoBackends& backends) {
     if (!backends.kem || !backends.random || !backends.hash || !backends.merkle || !backends.sig)
         throw VaultError(ErrorCode::InvalidArgument, "backends incomplete");
-    auto storage = storage::make_flat_storage(paths.vault_dir);
-    auto trusted = storage::make_file_trusted_storage(paths.trusted_dir);
+    auto storage = make_storage(paths);
+    auto trusted = make_trusted(paths);
     if (std::filesystem::exists(paths.vault_dir))
         throw VaultError(ErrorCode::AlreadyExists, "vault directory already exists: " + paths.vault_dir.string());
     if (std::filesystem::exists(paths.trusted_dir))
@@ -122,8 +130,8 @@ Vault Vault::open(const VaultPaths& paths, crypto::CryptoBackends backends) {
     auto impl = std::make_unique<Impl>();
     impl->paths = paths;
     impl->backends = std::move(backends);
-    impl->storage = storage::make_flat_storage(paths.vault_dir);
-    impl->trusted = storage::make_file_trusted_storage(paths.trusted_dir);
+    impl->storage = make_storage(paths);
+    impl->trusted = make_trusted(paths);
     if (!impl->trusted->exists())
         throw VaultError(ErrorCode::NotFound, "trusted state not found in " + paths.trusted_dir.string());
     if (!impl->storage->exists())
@@ -141,8 +149,8 @@ Vault Vault::open(const VaultPaths& paths, crypto::CryptoBackends backends) {
 }
 
 core::VerifyReport Vault::verify_state(const VaultPaths& paths, const crypto::CryptoBackends& backends) {
-    auto storage = storage::make_flat_storage(paths.vault_dir);
-    auto trusted = storage::make_file_trusted_storage(paths.trusted_dir);
+    auto storage = make_storage(paths);
+    auto trusted = make_trusted(paths);
     if (!trusted->exists())
         throw VaultError(ErrorCode::NotFound, "trusted state not found in " + paths.trusted_dir.string());
     if (!storage->exists()) throw VaultError(ErrorCode::NotFound, "vault directory not found: " + paths.vault_dir.string());

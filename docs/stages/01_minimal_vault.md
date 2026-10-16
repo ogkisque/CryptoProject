@@ -144,7 +144,7 @@ sudo apt install libssl-dev        # OpenSSL >= 3.0 (на этой машине 
 ### Отклонения от плана и заметки по реализации
 
 * **liboqs 0.16.0, а не 0.14.0:** в 0.14 нет `OQS_KEM_encaps_derand` (нужен для KAT и для сравнения CPU==GPU в этапе 6). `keypair_derand`, `encaps_derand` и `sign_with_ctx_str` в 0.16.0 есть (проверено по исходникам; ML-DSA в этапе 2 ещё надо проверить на практике).
-* **Векторы:** GCM (spec test cases 13/14), KW (RFC 3394 §4.6), SHA3-256 ("" и "abc") зашиты прямо в `tests/unit/crypto_test.cpp`. HKDF-SHA3-256 сверяется с ручной реализацией RFC 5869 через `HMAC(EVP_sha3_256)`. **Не сделано:** ACVP-векторы ML-KEM (derand-детерминизм и круговой тест есть, но сверка с NIST-файлами нет) и файлы CAVP в `tests/vectors/`. Перенесено на этап 2/4.
+* **Векторы:** GCM (spec test cases 13/14), KW (RFC 3394 §4.6), SHA3-256 ("" и "abc") зашиты прямо в `tests/unit/crypto_test.cpp`. HKDF-SHA3-256 сверяется с ручной реализацией RFC 5869 через `HMAC(EVP_sha3_256)`. **Не сделано:** ACVP-векторы ML-KEM (derand-детерминизм и круговой тест есть, но сверка с NIST-файлами нет) и файлы CAVP в `tests/vectors/`. Перенесено на этап 2/4. *(Сделано при ревью этапа 2: `mlkem_acvp_test.cpp`.)*
 * **Падения `FlatStorage`:** неатомарность между `kem.ct`, `objects/` и trusted-ключами при сбое в `init` не обрабатывается (повторный `init` скажет «уже существует»). `trusted_state.bin` пишется последним, поэтому частичный `init` отличим от завершённого. Корректное поведение — в этапе 3.
 * **Проверка hex в `file_id`:** `extract/remove` требуют ровно 32 hex-символа.
 * `cpu-mt` и `gpu` пока выдают `BackendUnavailable`.

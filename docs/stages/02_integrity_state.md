@@ -76,11 +76,28 @@
 |---|---|
 | 2026-10-16 | Этап 2 завершён: Merkle (reference + proofs), ML-DSA-65 backend, подпись Manifest, StateVerifier по шагам 1–6 и 9–12, `vault verify`. Все тесты (CPU и ASan/UBSan) проходят. Детали и отклонения ниже. |
 
+### Ревью (2026-10-16)
+
+Проверено по коду: порядок шагов верификатора совпадает с `docs/format_v1.md` §11; Decaps и загрузка `kem.sk` идут строго после `verify_current()`; `vault verify` секретов не трогает; сравнения хешей — constant-time; proof-проверка строгая; детерминированная подпись ML-DSA собирает `M'` по FIPS 204 Alg. 2 и подтверждена ACVP. Дефектов в криптографической логике не найдено.
+
+| # | Находка | Что сделано |
+|---|---|---|
+| R1 | Сверка ML-KEM-768 с NIST ACVP, перенесённая с этапа 1 «на 2/4», так и не была сделана | `tests/vectors/gen_mlkem_acvp.py` → `mlkem768_acvp.txt`, `tests/unit/mlkem_acvp_test.cpp`: keyGen, encapsulation, decapsulation (в т.ч. implicit rejection), encapsulationKeyCheck/decapsulationKeyCheck — liboqs отвергает невалидные ключи |
+| R2 | Байтовые форматы проверялись только нашим же кодом (`format_v1_vectors` не создан) | `tests/vectors/gen_format_vectors.py` — независимая stdlib-реализация FilePlaintext, AAD, KEK (HKDF-SHA3-256 через `hmac`), EncryptedFileV1, leaf, EMPTY_ROOT, key ids, kem_ct_hash, Manifest, manifest_hash, TrustedState → `format_v1_vectors.txt`; тест `tests/unit/format_vectors_test.cpp` |
+| R3 | Выбор `FlatStorage` продублирован в трёх местах `vault.cpp` | `make_storage()` / `make_trusted()` — единственная точка замены для этапа 3 |
+
+**Риски, оставленные как есть (записаны для этапа 3):**
+* `put_manifest` пишет `manifest.bin` и `manifest.sig` двумя отдельными rename: сбой между ними оставит пару несогласованной (`Signature`), а сбой между объектом и Manifest — `FileCount`. Это закрывает commit protocol этапа 3; FlatStorage после него используется только в тестах.
+* Линковка зависит от внутренних символов `PQCP_MLDSA_NATIVE_MLDSA65_C_*` (см. ниже). Делать их weak нельзя: weak-ссылка не вытягивает объект из `liboqs.a`, ошибка ушла бы в рантайм. При обновлении liboqs — сначала прогнать `MlDsa.Acvp*`.
+* Детерминированный путь использует портативный C-вариант mldsa-native, а hedged-путь через публичный API может уйти в AVX2-вариант. Алгоритм один и тот же, взаимная проверка подписи покрыта тестами.
+
+Итого тестов: 101 (было 89), Release и ASan/UBSan зелёные.
+
 ### Заметки и отклонения
 
 * **Детерминированный ML-DSA.** В публичном API liboqs 0.16.0 нет derand keygen/sign. `src/crypto/cpu/mldsa_liboqs.cpp` вызывает внутренние точки mldsa-native, экспортируемые из `liboqs.a`: `PQCP_MLDSA_NATIVE_MLDSA65_C_keypair_internal` и `..._C_signature_internal` (портативный C-вариант). Подпись с rnd собирается вручную: `pre = 0x00 || len(ctx) || ctx`. Эти точки нужны только при `seed`/`rnd != nullopt`. Производственный путь (hedged) идёт через `OQS_SIG_sign_with_ctx_str`. Совпадение подтверждено ACVP sigGen и проверкой детерминированной подписи через публичный `verify_with_ctx_str`. Если при обновлении liboqs символы переименуют, сломается линковка — тогда пересмотреть.
 * **ACVP.** `tests/vectors/mldsa65_acvp.txt` создан скриптом `tests/vectors/gen_mldsa_acvp.py` из `internalProjection.json` (NIST ACVP-Server): keyGen, sigGen external/pure (deterministic и с rnd), sigVer — по 8 первых тестов каждой группы. Тест: `tests/unit/mldsa_test.cpp`.
-* **Merkle-векторы.** `tests/vectors/merkle_vectors.txt` генерируется независимой Python-реализацией (`gen_merkle.py`, `hashlib.sha3_256`) для N = 0…17. `EMPTY_ROOT = 79cca31d…1ba8` зафиксирован в `tests/unit/merkle_test.cpp`. Отдельный `format_v1_vectors.json` пока не создавался.
+* **Merkle-векторы.** `tests/vectors/merkle_vectors.txt` генерируется независимой Python-реализацией (`gen_merkle.py`, `hashlib.sha3_256`) для N = 0…17. `EMPTY_ROOT = 79cca31d…1ba8` зафиксирован в `tests/unit/merkle_test.cpp`. Формат целиком проверяется `format_v1_vectors.txt` (см. ревью R2).
 * **`verify_proof` строгая:** форма пути выводится из `(leaf_index, leaf_count)`, поэтому лишние, недостающие и «не те» шаги отвергаются. Учтите: одинаковая форма пути у деревьев разного размера (напр. 5 и 6 листьев для листа 0) не считается ошибкой, привязка к размеру дерева идёт через `file_count` в Manifest.
 * **Объекты хешируются по сырым байтам с диска.** Разбор `EncryptedFileV1` строгий (trailing data запрещены), поэтому они равны `CanonicalEncode(obj)`.
 * **Порядок `VerifyStep`.** Неверный размер `manifest.bin` — `ManifestParse`; отвергнутая версия/suite внутри — `FormatVersion`/`CryptoSuite`; неверный размер `kem.ct` — по-прежнему `LoadSnapshot` (до Manifest); неверный размер `manifest.sig` — `Signature`.
