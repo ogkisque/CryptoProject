@@ -37,9 +37,11 @@ int main(int argc, char** argv) {
     std::string trusted_dir = env_or("VAULT_TRUSTED_DIR", "./trusted");
     std::string backend = "cpu";
     bool verbose = false;
+    unsigned threads = 0;
     app.add_option("--vault", vault_dir, "untrusted vault directory (env VAULT_DIR)");
     app.add_option("--trusted", trusted_dir, "trusted area directory (env VAULT_TRUSTED_DIR)");
     app.add_option("--backend", backend, "cpu | cpu-mt | gpu")->check(CLI::IsMember({"cpu", "cpu-mt", "gpu"}));
+    app.add_option("--threads", threads, "threads for --backend cpu-mt (0 = all cores)");
     app.add_flag("-v,--verbose", verbose);
 
     int rc = 0;
@@ -48,6 +50,7 @@ int main(int argc, char** argv) {
             cli::GlobalOptions g;
             g.paths = {vault_dir, trusted_dir};
             g.backend.kind = crypto::parse_backend_kind(backend);
+            g.backend.cpu_threads = threads;
             g.verbose = verbose;
             rc = fn(g);
         } catch (const std::exception& e) {
@@ -89,10 +92,19 @@ int main(int argc, char** argv) {
     app.add_subcommand("verify", "verify vault state")->callback([&] { run(cli::cmd_verify); });
     app.add_subcommand("gc", "remove stale generations")->callback([&] { run(cli::cmd_gc); });
 
-    std::string bench_cfg;
+    std::string bench_cfg, bench_csv, bench_json;
     auto* bench = app.add_subcommand("benchmark", "CPU/GPU benchmark");
-    bench->add_option("--config", bench_cfg);
-    bench->callback([&] { run([&](auto& g) { return cli::cmd_benchmark(g, bench_cfg); }); });
+    bench->add_option("--config", bench_cfg, "benchmark config (bench/configs/*.json)")->required();
+    bench->add_option("--csv", bench_csv, "write results as CSV (overrides config)");
+    bench->add_option("--json", bench_json, "write results + system info as JSON (overrides config)");
+    bench->callback([&] {
+        run([&](auto& g) {
+            std::optional<std::filesystem::path> csv, json;
+            if (!bench_csv.empty()) csv = bench_csv;
+            if (!bench_json.empty()) json = bench_json;
+            return cli::cmd_benchmark(g, bench_cfg, csv, json);
+        });
+    });
 
     try {
         app.parse(argc, argv);

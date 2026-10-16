@@ -5,8 +5,10 @@
 
 #include <cerrno>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 
+#include "vault/bench/benchmark.hpp"
 #include "vault/common/error.hpp"
 #include "vault/storage/fs_util.hpp"
 
@@ -22,6 +24,19 @@ FileId parse_file_id(const std::string& hex) {
 
 Vault open_vault(const GlobalOptions& g) {
     return Vault::open(g.paths, crypto::make_backends(g.backend));
+}
+
+void print_profile(const char* what, const PhaseProfile& p) {
+    std::cout << what << " phases (ms): algorithm " << p[Phase::Algorithm] << ", serialization "
+              << p[Phase::Serialization] << ", filesystem " << p[Phase::Filesystem] << ", memcpy "
+              << p[Phase::MemoryCopy] << "\n";
+}
+
+// --verbose: профиль проверки состояния при открытии и самой операции.
+void print_verbose(const GlobalOptions& g, const Vault& v) {
+    if (!g.verbose) return;
+    print_profile("verify", v.open_profile());
+    print_profile("operation", v.last_profile());
 }
 
 // Имя из недоверенного (с точки зрения FS) plaintext -> безопасное имя в текущей директории.
@@ -81,6 +96,7 @@ int cmd_add(const GlobalOptions& g, const std::filesystem::path& file) {
     Vault v = open_vault(g);
     FileId id = v.add_file(file);
     std::cout << to_hex(as_view(id)) << "\n";
+    print_verbose(g, v);
     return 0;
 }
 
@@ -92,6 +108,7 @@ int cmd_extract(const GlobalOptions& g, const std::string& file_id_hex,
     std::filesystem::path out = output ? *output : sanitize_filename(f.filename);
     write_output(out, f.data.view(), force);
     std::cout << "extracted '" << f.filename << "' -> " << out.string() << " (" << f.data.size() << " bytes)\n";
+    print_verbose(g, v);
     return 0;
 }
 
@@ -100,6 +117,7 @@ int cmd_remove(const GlobalOptions& g, const std::string& file_id_hex) {
     Vault v = open_vault(g);
     v.remove(id);
     std::cout << "removed " << to_hex(as_view(id)) << "\n";
+    print_verbose(g, v);
     return 0;
 }
 
@@ -138,9 +156,40 @@ int cmd_gc(const GlobalOptions& g) {
     return 0;
 }
 
-int cmd_benchmark(const GlobalOptions&, const std::filesystem::path&) {
-    std::cerr << "benchmark: not implemented yet (stage 4)\n";
-    return 1;
+int cmd_benchmark(const GlobalOptions&, const std::filesystem::path& config_json,
+                  const std::optional<std::filesystem::path>& csv, const std::optional<std::filesystem::path>& json) {
+    if (config_json.empty()) throw VaultError(ErrorCode::InvalidArgument, "benchmark: --config is required");
+    bench::BenchConfig cfg = bench::load_bench_config(config_json);
+    if (csv) cfg.output_csv = *csv;
+    if (json) cfg.output_json = *json;
+
+    std::vector<bench::BenchRecord> records = bench::run_benchmarks(cfg);
+
+    std::size_t skipped = 0;
+    std::cout << std::left << std::setw(14) << "op" << std::setw(8) << "backend" << std::right << std::setw(10)
+              << "size" << std::setw(8) << "count" << std::setw(14) << "median ms" << std::setw(12) << "GB/s"
+              << std::setw(14) << "ops/s" << "\n";
+    for (const auto& r : records) {
+        if (r.skipped) {
+            ++skipped;
+            continue;
+        }
+        std::cout << std::left << std::setw(14) << bench::to_string(r.op) << std::setw(8) << r.backend << std::right
+                  << std::setw(10) << r.object_size << std::setw(8) << r.count << std::setw(14) << std::fixed
+                  << std::setprecision(4) << r.total_ms.median << std::setw(12) << std::setprecision(3)
+                  << r.throughput_gbps << std::setw(14) << std::setprecision(1) << r.ops_per_sec << "\n";
+    }
+    std::cout << records.size() - skipped << " measured, " << skipped << " skipped\n";
+
+    if (!cfg.output_csv.empty()) {
+        bench::write_csv(cfg.output_csv, records);
+        std::cout << "csv:  " << cfg.output_csv.string() << "\n";
+    }
+    if (!cfg.output_json.empty()) {
+        bench::write_json(cfg.output_json, bench::collect_system_info(), cfg, records);
+        std::cout << "json: " << cfg.output_json.string() << "\n";
+    }
+    return 0;
 }
 
 }  // namespace vault::cli

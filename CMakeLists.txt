@@ -45,13 +45,22 @@ list(FILTER VAULT_CORE_SOURCES EXCLUDE REGEX ".*/src/cli/.*")
 if(VAULT_CORE_SOURCES)
   include(Dependencies)  # OpenSSL >= 3.0, liboqs, CLI11, GTest
 
+  find_package(Threads REQUIRED)
+  # Версия сборки для SystemInfo (воспроизводимость benchmark'а).
+  execute_process(COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} rev-parse --short=12 HEAD
+                  OUTPUT_VARIABLE VAULT_GIT_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+  if(NOT VAULT_GIT_COMMIT)
+    set(VAULT_GIT_COMMIT "unknown")
+  endif()
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" VAULT_BUILD_TYPE_UC)
   add_library(vault_core STATIC ${VAULT_CORE_SOURCES})
   target_link_libraries(vault_core
     PUBLIC  vault_headers
-    PRIVATE vault_warnings OpenSSL::Crypto OQS::oqs)
+    PRIVATE vault_warnings OpenSSL::Crypto OQS::oqs nlohmann_json::nlohmann_json Threads::Threads)
   target_compile_definitions(vault_core PRIVATE
-    VAULT_COMPILE_FLAGS="${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}}"
-    VAULT_BUILD_TYPE="${CMAKE_BUILD_TYPE}")
+    VAULT_COMPILE_FLAGS="${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${VAULT_BUILD_TYPE_UC}}"
+    VAULT_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
+    VAULT_GIT_COMMIT="${VAULT_GIT_COMMIT}")
 
   if(VAULT_ENABLE_CUDA)
     include(Cuda)  # enable_language(CUDA), cuPQC, цель vault_gpu

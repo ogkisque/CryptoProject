@@ -24,7 +24,7 @@
 | 1. Минимальное хранилище (AES-GCM/KW, ML-KEM, HKDF, CLI) | `docs/stages/01_minimal_vault.md` | ✅ готово (2026-10-16) |
 | 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ✅ готово (2026-10-16) |
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ✅ готово (2026-10-16) |
-| 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ☐ |
+| 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ✅ готово (2026-10-16) |
 | 5. GPU SHA3 / Merkle (на GPU-машине) | `docs/stages/05_gpu_sha3_merkle.md` | ☐ |
 | 6. GPU ML-KEM / ML-DSA через cuPQC (на GPU-машине) | `docs/stages/06_gpu_pqc.md` | ☐ |
 | 7. Эксперименты и анализ | `docs/stages/07_experiments.md` | ☐ |
@@ -36,7 +36,7 @@
 - **C++20**, CMake ≥ 3.22, GCC 13 (локально). CUDA-код — C++17 (`nvcc`).
 - **OpenSSL ≥ 3.0**: AES-GCM, AES-KW, HKDF(SHA3-256), SHA3, RAND. Локально нужно поставить `libssl-dev`.
 - **liboqs 0.16.0** (FetchContent, tag в `cmake/Dependencies.cmake`): ML-KEM-768 и ML-DSA-65 на CPU.
-- **CLI11** — CLI; **GoogleTest** — тесты; позже **nlohmann/json** — конфиги benchmark'а.
+- **CLI11** — CLI; **GoogleTest** — тесты; **nlohmann/json** — конфиги и результаты benchmark'а.
 - **CUDA 12 + cuPQC SDK** — только на GPU-машине (`VAULT_ENABLE_CUDA=ON`).
 - Python (pandas, matplotlib) — анализ результатов.
 
@@ -89,7 +89,7 @@ include/vault/             ПУБЛИЧНЫЕ ИНТЕРФЕЙСЫ (готовы
   vault/                   key_hierarchy, object_codec, state_verifier, commit, vault (фасад)
   bench/                   stats, system_info, benchmark
   gpu/                     фабрики GPU backend'ов
-src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ добавлен на этапе 2; bench/ пока пуст)
+src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ и bench/ добавлены на этапах 2 и 4; common/thread_pool для CPU-MT)
 cuda/                      GPU-реализации (.cu), только при VAULT_ENABLE_CUDA
 tests/                     header_check.cpp; unit/ integration/ tamper/ (есть); crash/ (есть); gpu/ (пусто); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
@@ -126,3 +126,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Ревью этапа 2: криптографических дефектов нет. Добавлены NIST ACVP для ML-KEM-768 (долг этапа 1) и независимые Python-векторы всего формата v1; выбор storage-backend сведён в одну точку. 101 тест. Подробности — `docs/stages/02_integrity_state.md`, раздел «Ревью». |
 | 2026-10-16 | Этап 3 завершён: `GenerationStorage` (immutable поколения + hardlink), `CommitProtocol` с 6 crash-точками, шаги 7–8 verifier'а (rollback → `Generation`, fork → `ManifestHash`), `flock` на транзакцию, `vault gc`, предупреждения об orphan'ах. Тесты: rollback/fork, crash (CLI + `VAULT_CRASH_POINT`), параллельные `add`. Подробности — `docs/stages/03_rollback_crash_safety.md`. |
 | 2026-10-16 | Ревью этапа 3: исправлена гонка «проверка N / trusted N+1», из-за которой параллельный commit мог удалить актуальное доверенное поколение (`VerifyReport::trusted_state` + проверка актуальности в `commit`); `init` больше не удаляет чужие каталоги при `AlreadyExists`. 128 тестов. Подробности — `docs/stages/03_rollback_crash_safety.md`, раздел «Ревью». |
+| 2026-10-16 | Этап 4 завершён: `ThreadPool` и CPU-MT backend'ы (hash по байтам, Merkle по уровням, ML-KEM/ML-DSA batch), `--backend cpu|cpu-mt|gpu` и `--threads`, GPU-ветка `make_backends` (не компилировалась), плоские форматы batch (`format_v1.md` §15), профиль фаз (`-v`), benchmark framework + `vault benchmark --config --csv --json`, тест эквивалентности backend'ов. Подробности — `docs/stages/04_backend_abstraction.md`. |

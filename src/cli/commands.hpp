@@ -3,6 +3,7 @@
 //   --vault <dir>     (env VAULT_DIR, по умолчанию ./vault)
 //   --trusted <dir>   (env VAULT_TRUSTED_DIR, по умолчанию ./trusted)
 //   --backend cpu|cpu-mt|gpu   (по умолчанию cpu)
+//   --threads <n>     (число потоков cpu-mt; 0 = все ядра)
 // Коды возврата: 0 — успех, 1 — ошибка использования/IO,
 //                2 — нарушение целостности/аутентичности (VerificationError, AuthFailed).
 
@@ -32,6 +33,8 @@ int cmd_remove(const GlobalOptions& g, const std::string& file_id_hex);
 int cmd_list(const GlobalOptions& g, bool show_names);
 int cmd_verify(const GlobalOptions& g);
 int cmd_gc(const GlobalOptions& g);
-int cmd_benchmark(const GlobalOptions& g, const std::filesystem::path& config_json);
+// csv/json (если заданы) переопределяют output_csv/output_json из конфига.
+int cmd_benchmark(const GlobalOptions& g, const std::filesystem::path& config_json,
+                  const std::optional<std::filesystem::path>& csv, const std::optional<std::filesystem::path>& json);
 
 }  // namespace vault::cli

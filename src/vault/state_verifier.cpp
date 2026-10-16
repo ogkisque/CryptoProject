@@ -170,19 +170,25 @@ VerifyReport StateVerifier::verify_current() const {
         throw VerificationError(VerifyStep::FileCount, "object count differs from manifest file_count");
 
     // --- 12. Листья и Merkle root ---
+    std::vector<ByteView> views;
     {
-        ScopedPhase p(&report.profile, Phase::Algorithm);
-        std::vector<ByteView> views;
+        ScopedPhase pm(&report.profile, Phase::MemoryCopy);  // сборка входов batch
         views.reserve(parsed.size());
         for (const auto& po : parsed) views.emplace_back(po.raw);
         st.leaves.resize(parsed.size());
+    }
+    {
+        ScopedPhase p(&report.profile, Phase::Algorithm);
         backends_.merkle->compute_leaves(views, st.leaves, &report.merkle_timing);
         Hash256 root = backends_.merkle->root_from_leaves(st.leaves, &report.merkle_timing);
         if (!equal(root, m.merkle_root))
             throw VerificationError(VerifyStep::MerkleRoot, "merkle root differs from signed manifest");
     }
-    st.objects.reserve(parsed.size());
-    for (auto& po : parsed) st.objects.push_back(std::move(po.obj));
+    {
+        ScopedPhase pm(&report.profile, Phase::MemoryCopy);
+        st.objects.reserve(parsed.size());
+        for (auto& po : parsed) st.objects.push_back(std::move(po.obj));
+    }
     return report;
 }
 

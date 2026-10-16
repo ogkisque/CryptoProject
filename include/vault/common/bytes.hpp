@@ -19,6 +19,9 @@ using ByteView = std::span<const std::uint8_t>;
 using MutableByteView = std::span<std::uint8_t>;
 
 using Hash256 = std::array<std::uint8_t, kHashSize>;
+// Массивы Hash256 (листья, выход batch SHA3) — непрерывный буфер по 32 байта на элемент, без padding;
+// именно так они копируются на GPU и обратно.
+static_assert(sizeof(Hash256) == kHashSize && alignof(Hash256) == 1, "Hash256 must be a packed 32-byte array");
 using StorageUuid = std::array<std::uint8_t, kStorageUuidSize>;
 // FileId сравнивается лексикографически по 16 байтам (std::array::operator<=>),
 // что и задаёт канонический порядок Merkle leaves (§18).

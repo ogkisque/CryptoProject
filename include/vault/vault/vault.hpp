@@ -12,6 +12,7 @@
 
 #include "vault/common/bytes.hpp"
 #include "vault/common/secure_buffer.hpp"
+#include "vault/common/timing.hpp"
 #include "vault/crypto/backends.hpp"
 #include "vault/vault/state_verifier.hpp"
 
@@ -58,6 +59,10 @@ public:
     std::size_t garbage_collect();
 
     const core::VerifiedState& state() const;
+
+    // Профиль фаз (§4.4): проверка состояния при open() и последняя операция (add/extract/remove/list).
+    const PhaseProfile& open_profile() const;
+    const PhaseProfile& last_profile() const;
 
 private:
     struct Impl;

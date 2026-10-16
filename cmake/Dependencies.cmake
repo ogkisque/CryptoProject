@@ -2,6 +2,7 @@
 #   OpenSSL >= 3.0 : AES-256-GCM, AES-256-KW, HKDF(SHA3-256), SHA3-256, RAND_bytes
 #   liboqs         : ML-KEM-768, ML-DSA-65 (нужны encaps_derand (появился после 0.14) и sign_with_ctx_str -> 0.16.0)
 #   CLI11          : разбор аргументов
+#   nlohmann/json  : конфиги и результаты benchmark'а
 #   GoogleTest     : тесты
 include(FetchContent)
 
@@ -31,6 +32,13 @@ if(NOT CLI11_FOUND)
     GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
     GIT_TAG        v2.4.2)
   FetchContent_MakeAvailable(cli11)
+endif()
+
+find_package(nlohmann_json 3.11 CONFIG QUIET)
+if(NOT nlohmann_json_FOUND)
+  FetchContent_Declare(nlohmann_json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+  FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
 if(VAULT_BUILD_TESTS)

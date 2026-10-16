@@ -3,6 +3,7 @@
 #include "vault/vault/commit.hpp"
 
 #include <algorithm>
+#include <chrono>
 
 #include "vault/common/error.hpp"
 #include "vault/crypto/domain_hash.hpp"
@@ -99,7 +100,7 @@ CommitResult CommitProtocol::commit(VerifiedState& current, const ChangeSet& cha
     std::vector<std::pair<FileId, Hash256>> entries;  // новый набор (file_id, leaf)
     entries.reserve(current.objects.size() + changes.added.size());
     {
-        ScopedPhase p(&res.profile, Phase::Filesystem);
+        const auto t_begin = std::chrono::steady_clock::now();  // Filesystem = всё, что не Algorithm/Serialization/MemoryCopy
         auto writer = storage_.begin_snapshot(n + 1, n);
         bool crashed_during = false;
         auto after_first_op = [&] {
@@ -111,7 +112,10 @@ CommitResult CommitProtocol::commit(VerifiedState& current, const ChangeSet& cha
         std::vector<Bytes> encoded;
         encoded.reserve(changes.added.size());
         for (const auto& o : changes.added) {
-            encoded.push_back(encoding::encode_encrypted_file(o));
+            {
+                ScopedPhase ps(&res.profile, Phase::Serialization);
+                encoded.push_back(encoding::encode_encrypted_file(o));
+            }
             writer->put_object(o.file_id, encoded.back());
             after_first_op();
         }
@@ -122,16 +126,19 @@ CommitResult CommitProtocol::commit(VerifiedState& current, const ChangeSet& cha
 
         // 3. Листья: для неизменённых объектов переиспользуем current.leaves
         {
-            ScopedPhase pa(&res.profile, Phase::Algorithm);
+            std::vector<Hash256> new_leaves(encoded.size());
+            {
+                ScopedPhase pa(&res.profile, Phase::Algorithm);
+                std::vector<ByteView> views(encoded.begin(), encoded.end());
+                backends_.merkle->compute_leaves(views, new_leaves, nullptr);
+            }
+            ScopedPhase pm(&res.profile, Phase::MemoryCopy);  // сборка нового набора листьев
             for (std::size_t i = 0; i < current.objects.size(); ++i) {
                 const FileId& id = current.objects[i].file_id;
                 if (std::find(changes.removed.begin(), changes.removed.end(), id) != changes.removed.end()) continue;
                 entries.emplace_back(id, current.leaves[i]);
             }
-            std::vector<ByteView> views(encoded.begin(), encoded.end());
-            std::vector<Hash256> new_leaves(views.size());
-            backends_.merkle->compute_leaves(views, new_leaves, nullptr);
-            for (std::size_t i = 0; i < views.size(); ++i) entries.emplace_back(changes.added[i].file_id, new_leaves[i]);
+            for (std::size_t i = 0; i < new_leaves.size(); ++i) entries.emplace_back(changes.added[i].file_id, new_leaves[i]);
             std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
         }
         std::vector<Hash256> leaves;
@@ -164,6 +171,12 @@ CommitResult CommitProtocol::commit(VerifiedState& current, const ChangeSet& cha
         trusted_.update_state(ts);
         crash_here(CrashPoint::AfterTrustedUpdate);
 
+        {
+            double wall = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_begin).count();
+            double other = res.profile[Phase::Algorithm] + res.profile[Phase::Serialization] + res.profile[Phase::MemoryCopy];
+            res.profile[Phase::Filesystem] += std::max(0.0, wall - other);
+        }
+        ScopedPhase pm(&res.profile, Phase::MemoryCopy);
         // Успех: перенос нового состояния в current (без повторной проверки, §34).
         current.manifest = m;
         current.manifest_hash = res.new_manifest_hash;

@@ -1,7 +1,9 @@
 // Эталонное Merkle Tree (docs/format_v1.md §6) поверх любого IHashBackend.
+#include <algorithm>
 #include <chrono>
 
 #include "vault/common/error.hpp"
+#include "vault/common/thread_pool.hpp"
 #include "vault/crypto/domain_hash.hpp"
 #include "vault/merkle/merkle.hpp"
 
@@ -12,25 +14,35 @@ namespace {
 using crypto::IHashBackend;
 
 // Один шаг подъёма: уровень из n > 1 узлов -> уровень из ceil(n/2) узлов.
-std::vector<Hash256> next_level(IHashBackend& h, const std::vector<Hash256>& cur) {
-    std::vector<Hash256> next;
-    next.reserve((cur.size() + 1) / 2);
-    for (std::size_t i = 0; i < cur.size(); i += 2) {
-        if (i + 1 < cur.size())
-            next.push_back(crypto::merkle_parent(h, cur[i], cur[i + 1]));
-        else
-            next.push_back(crypto::merkle_unpaired(h, cur[i]));
+// Узлы уровня независимы, поэтому при pool != nullptr и достаточной ширине считаются параллельно.
+constexpr std::size_t kParallelLevelThreshold = 2048;  // родителей на уровне
+
+std::vector<Hash256> next_level(IHashBackend& h, const std::vector<Hash256>& cur, ThreadPool* pool) {
+    const std::size_t parents = (cur.size() + 1) / 2;
+    std::vector<Hash256> next(parents);
+    auto one = [&](std::size_t p) {
+        std::size_t i = 2 * p;
+        next[p] = i + 1 < cur.size() ? crypto::merkle_parent(h, cur[i], cur[i + 1]) : crypto::merkle_unpaired(h, cur[i]);
+    };
+    if (pool && parents >= kParallelLevelThreshold) {
+        std::size_t parts = std::size_t{pool->size()} * 4;
+        pool->parallel_for(parts, [&](std::size_t k) {
+            for (std::size_t p = parents * k / parts; p < parents * (k + 1) / parts; ++p) one(p);
+        });
+    } else {
+        for (std::size_t p = 0; p < parents; ++p) one(p);
     }
     return next;
 }
 
 class ReferenceMerkle final : public IMerkleBackend {
 public:
-    explicit ReferenceMerkle(std::shared_ptr<IHashBackend> hash) : hash_(std::move(hash)) {
+    ReferenceMerkle(std::shared_ptr<IHashBackend> hash, unsigned threads) : hash_(std::move(hash)) {
+        if (threads > 1) pool_ = shared_thread_pool(threads);
         if (!hash_) throw VaultError(ErrorCode::InvalidArgument, "merkle: hash backend is null");
     }
 
-    std::string_view name() const override { return "reference"; }
+    std::string_view name() const override { return pool_ ? "cpu-mt" : "reference"; }
 
     void compute_leaves(std::span<const ByteView> objs, std::span<Hash256> out, TimingBreakdown* timing) override {
         hash_->domain_hash_batch(domain::kMerkleLeaf, objs, out, timing);
@@ -40,7 +52,7 @@ public:
         Timer t(timing);
         if (leaves.empty()) return crypto::merkle_empty_root(*hash_);
         std::vector<Hash256> level(leaves.begin(), leaves.end());
-        while (level.size() > 1) level = next_level(*hash_, level);
+        while (level.size() > 1) level = next_level(*hash_, level, pool_.get());
         return level[0];
     }
 
@@ -52,7 +64,7 @@ public:
             return tree;
         }
         tree.levels.emplace_back(leaves.begin(), leaves.end());
-        while (tree.levels.back().size() > 1) tree.levels.push_back(next_level(*hash_, tree.levels.back()));
+        while (tree.levels.back().size() > 1) tree.levels.push_back(next_level(*hash_, tree.levels.back(), pool_.get()));
         tree.root = tree.levels.back()[0];
         return tree;
     }
@@ -62,8 +74,15 @@ public:
         if (leaves.size() != proofs.size() || out_ok.size() != proofs.size())
             throw VaultError(ErrorCode::InvalidArgument, "merkle: batch size mismatch");
         Timer t(timing);
-        for (std::size_t i = 0; i < proofs.size(); ++i)
-            out_ok[i] = verify_proof(*hash_, leaves[i], proofs[i], root) ? 1 : 0;
+        auto one = [&](std::size_t i) { out_ok[i] = verify_proof(*hash_, leaves[i], proofs[i], root) ? 1 : 0; };
+        if (pool_ && proofs.size() > 1) {
+            std::size_t n = proofs.size(), parts = std::min<std::size_t>(n, std::size_t{pool_->size()} * 4);
+            pool_->parallel_for(parts, [&](std::size_t k) {
+                for (std::size_t i = n * k / parts; i < n * (k + 1) / parts; ++i) one(i);
+            });
+        } else {
+            for (std::size_t i = 0; i < proofs.size(); ++i) one(i);
+        }
     }
 
 private:
@@ -81,12 +100,17 @@ private:
     };
 
     std::shared_ptr<IHashBackend> hash_;
+    std::shared_ptr<ThreadPool> pool_;
 };
 
 }  // namespace
 
 std::unique_ptr<IMerkleBackend> make_reference_merkle(std::shared_ptr<crypto::IHashBackend> hash) {
-    return std::make_unique<ReferenceMerkle>(std::move(hash));
+    return std::make_unique<ReferenceMerkle>(std::move(hash), 1);
+}
+
+std::unique_ptr<IMerkleBackend> make_parallel_merkle(std::shared_ptr<crypto::IHashBackend> hash, unsigned threads) {
+    return std::make_unique<ReferenceMerkle>(std::move(hash), threads);
 }
 
 }  // namespace vault::merkle

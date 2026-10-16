@@ -103,3 +103,39 @@ TEST_F(CliTest, ExtractSanitizesStoredFilename) {
     EXPECT_FALSE(std::filesystem::exists(root / "evil.sh"));
     EXPECT_FALSE(std::filesystem::exists(root.parent_path() / "evil.sh"));
 }
+
+TEST_F(CliTest, BackendFlagAndThreadsGiveSameResult) {
+    ASSERT_EQ(run("init"), 0);
+    spit(root / "in.txt", Bytes(1000, 3));
+    ASSERT_EQ(run("--backend cpu-mt --threads 3 add in.txt"), 0);
+    std::string id = read_text("out.txt").substr(0, 32);
+    EXPECT_EQ(run("--backend cpu verify"), 0);
+    EXPECT_EQ(run("--backend cpu-mt verify"), 0);
+    EXPECT_EQ(run("--backend cpu-mt extract " + id + " -o r.bin"), 0);
+    EXPECT_EQ(slurp(root / "r.bin"), Bytes(1000, 3));
+    EXPECT_EQ(run("--backend gpu verify"), 1);  // без CUDA: BackendUnavailable
+    EXPECT_NE(read_text("err.txt").find("gpu backend"), std::string::npos);
+}
+
+TEST_F(CliTest, VerbosePrintsPhaseProfiles) {
+    ASSERT_EQ(run("init"), 0);
+    spit(root / "in.txt", Bytes(100, 3));
+    ASSERT_EQ(run("-v add in.txt"), 0);
+    std::string out = read_text("out.txt");
+    EXPECT_NE(out.find("verify phases (ms)"), std::string::npos);
+    EXPECT_NE(out.find("operation phases (ms)"), std::string::npos);
+    ASSERT_EQ(run("-v verify"), 0);
+    EXPECT_NE(read_text("out.txt").find("phases (ms)"), std::string::npos);
+}
+
+TEST_F(CliTest, BenchmarkWritesCsvAndJson) {
+    std::string cfg = R"({"ops":["sha3","mldsa_verify"],"backends":["cpu","cpu-mt","gpu"],
+        "object_sizes":[1024],"object_counts":[4],"batch_sizes":[2],"warmup_runs":0,"measured_runs":2})";
+    spit(root / "bench.json", Bytes(cfg.begin(), cfg.end()));
+    ASSERT_EQ(run("benchmark --config bench.json --csv res/r.csv --json res/r.json"), 0) << read_text("err.txt");
+    EXPECT_TRUE(std::filesystem::exists(root / "res" / "r.csv"));
+    EXPECT_TRUE(std::filesystem::exists(root / "res" / "r.json"));
+    EXPECT_NE(read_text("res/r.csv").find("sha3,cpu-mt,1024,4"), std::string::npos);
+    EXPECT_EQ(run("benchmark --config nope.json"), 1);
+    EXPECT_NE(run("benchmark"), 0);  // --config обязателен
+}

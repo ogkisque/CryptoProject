@@ -2,7 +2,11 @@
 
 #include "vault/common/error.hpp"
 #include "vault/crypto/cpu_backends.hpp"
+#include "vault/common/thread_pool.hpp"
 #include "vault/merkle/merkle.hpp"
+#ifdef VAULT_HAS_CUDA
+#include "vault/gpu/gpu_backends.hpp"
+#endif
 
 namespace vault::crypto {
 
@@ -31,19 +35,42 @@ std::string_view to_string(BackendKind k) noexcept {
 }
 
 CryptoBackends make_backends(const BackendConfig& cfg) {
-    switch (cfg.kind) {
-        case BackendKind::Cpu: break;
-        case BackendKind::CpuParallel:
-            throw VaultError(ErrorCode::BackendUnavailable, "cpu-mt backend: not implemented yet (stage 4)");
-        case BackendKind::Gpu:
-            throw VaultError(ErrorCode::BackendUnavailable, "gpu backend: not available (stages 5-6)");
-    }
     CryptoBackends b;
-    b.hash = make_cpu_hash_backend(1);
-    b.kem = make_cpu_kem_backend(1);
+    switch (cfg.kind) {
+        case BackendKind::Cpu: {
+            b.hash = make_cpu_hash_backend(1);
+            b.merkle = merkle::make_reference_merkle(b.hash);
+            b.kem = make_cpu_kem_backend(1);
+            b.sig = make_cpu_sig_backend(1);
+            break;
+        }
+        case BackendKind::CpuParallel: {
+            unsigned t = resolve_thread_count(cfg.cpu_threads);
+            b.hash = make_cpu_hash_backend(t);
+            b.merkle = merkle::make_parallel_merkle(b.hash, t);
+            b.kem = make_cpu_kem_backend(t);
+            b.sig = make_cpu_sig_backend(t);
+            break;
+        }
+        case BackendKind::Gpu: {
+#ifdef VAULT_HAS_CUDA
+            // GPU — только ускоритель (§41, §43): симметричная криптография и RNG остаются на CPU.
+            if (!gpu::cuda_device_available())
+                throw VaultError(ErrorCode::BackendUnavailable, "gpu backend: no CUDA device available");
+            gpu::GpuOptions opt;
+            opt.device = cfg.cuda_device;
+            opt.pinned_host_memory = cfg.pinned_host_memory;
+            b.hash = gpu::make_gpu_hash_backend(opt);
+            b.merkle = gpu::make_gpu_merkle_backend(opt);
+            b.kem = gpu::make_gpu_kem_backend(opt);
+            b.sig = gpu::make_gpu_sig_backend(opt);
+            break;
+#else
+            throw VaultError(ErrorCode::BackendUnavailable, "gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)");
+#endif
+        }
+    }
     b.random = make_system_random();
-    b.merkle = merkle::make_reference_merkle(b.hash);
-    b.sig = make_cpu_sig_backend(1);
     return b;
 }
 

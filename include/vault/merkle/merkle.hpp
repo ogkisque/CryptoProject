@@ -65,6 +65,9 @@ public:
 // Эталонная (reference) реализация поверх любого IHashBackend — CPU-спецификация,
 // с которой сравниваются все backend'ы.
 std::unique_ptr<IMerkleBackend> make_reference_merkle(std::shared_ptr<crypto::IHashBackend> hash);
+// Многопоточный CPU-вариант: листья — через batch hash backend'а, уровни дерева с достаточным числом
+// узлов считаются параллельно. Результат побайтно совпадает с reference. threads <= 1 -> reference.
+std::unique_ptr<IMerkleBackend> make_parallel_merkle(std::shared_ptr<crypto::IHashBackend> hash, unsigned threads);
 
 MerkleProof make_proof(const MerkleTree& tree, std::uint64_t leaf_index);
 bool verify_proof(crypto::IHashBackend& hash, const Hash256& leaf, const MerkleProof& proof,

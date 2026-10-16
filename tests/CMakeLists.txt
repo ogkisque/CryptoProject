@@ -10,8 +10,9 @@ foreach(category unit integration tamper crash)
   file(GLOB _srcs CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${category}/*.cpp)
   if(_srcs)
     add_executable(test_${category} ${_srcs})
-    target_link_libraries(test_${category} PRIVATE vault_core OpenSSL::Crypto GTest::gtest_main)
+    target_link_libraries(test_${category} PRIVATE vault_core OpenSSL::Crypto nlohmann_json::nlohmann_json GTest::gtest_main)
     target_compile_definitions(test_${category} PRIVATE
+      VAULT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
       VAULT_TEST_VECTORS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vectors"
       VAULT_CLI_PATH="$<TARGET_FILE:vault>")
     gtest_discover_tests(test_${category} PROPERTIES LABELS ${category})

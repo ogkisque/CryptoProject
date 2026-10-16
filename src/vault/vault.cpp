@@ -35,6 +35,7 @@ struct Vault::Impl {
     std::unique_ptr<storage::ITrustedStorage> trusted;
     encoding::TrustedStateV1 trusted_state;
     core::VerifiedState verified;
+    PhaseProfile open_profile, last_profile;
     SecureBytes kek;  // живёт, пока открыт Vault; обнуляется деструктором
 
     // Транзакция (§3.3a): эксклюзивная блокировка на время «актуализация состояния -> commit».
@@ -138,6 +139,7 @@ Vault Vault::open(const VaultPaths& paths, crypto::CryptoBackends backends) {
 
     core::VerifyReport report = core::StateVerifier(impl->backends, *impl->storage, *impl->trusted).verify_current();
     impl->verified = std::move(report.state);
+    impl->open_profile = report.profile;
     impl->trusted_state = report.trusted_state;  // не перечитывать: см. VerifyReport::trusted_state
 
     // Только после успешной проверки состояния:
@@ -158,6 +160,7 @@ core::VerifyReport Vault::verify_state(const VaultPaths& paths, const crypto::Cr
 
 FileId Vault::add_bytes(std::string_view filename, ByteView data) {
     FileId id{};
+    impl_->last_profile = {};
     impl_->transaction([&] {
         do {
             impl_->backends.random->fill(MutableByteView(id));
@@ -165,40 +168,53 @@ FileId Vault::add_bytes(std::string_view filename, ByteView data) {
                              [&](const auto& o) { return o.file_id == id; }));
         core::ChangeSet cs;
         cs.added.push_back(core::encrypt_object(*impl_->backends.random, impl_->kek.view(),
-                                                impl_->trusted_state.storage_uuid, id, filename, data));
-        core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).commit(impl_->verified, cs);
+                                                impl_->trusted_state.storage_uuid, id, filename, data,
+                                                &impl_->last_profile));
+        impl_->last_profile +=
+            core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).commit(impl_->verified, cs).profile;
     });
     return id;
 }
 
 FileId Vault::add_file(const std::filesystem::path& file) {
-    SecureBytes data = storage::read_file_secure(file);
+    PhaseProfile read;
+    SecureBytes data;
+    {
+        ScopedPhase p(&read, Phase::Filesystem);
+        data = storage::read_file_secure(file);
+    }
     std::string name = file.filename().string();
-    return add_bytes(name, data.view());
+    FileId id = add_bytes(name, data.view());
+    impl_->last_profile += read;
+    return id;
 }
 
 ExtractedFile Vault::extract(const FileId& id) {
+    impl_->last_profile = {};
     auto it = impl_->find(id);
-    encoding::FilePlaintext p = core::decrypt_object(impl_->kek.view(), *it);
+    encoding::FilePlaintext p = core::decrypt_object(impl_->kek.view(), *it, &impl_->last_profile);
     return ExtractedFile{std::move(p.filename), std::move(p.file_data)};
 }
 
 void Vault::remove(const FileId& id) {
+    impl_->last_profile = {};
     impl_->transaction([&] {
         impl_->find(id);  // NotFound, если файла нет (в т.ч. после обновления состояния)
         core::ChangeSet cs;
         cs.removed.push_back(id);
-        core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).commit(impl_->verified, cs);
+        impl_->last_profile +=
+            core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).commit(impl_->verified, cs).profile;
     });
 }
 
 std::vector<ObjectInfo> Vault::list(bool decrypt_names) {
     std::vector<ObjectInfo> out;
+    impl_->last_profile = {};
     for (const auto& o : impl_->verified.objects) {
         ObjectInfo info;
         info.file_id = o.file_id;
         info.ciphertext_size = o.ciphertext.size();
-        if (decrypt_names) info.filename = core::decrypt_object(impl_->kek.view(), o).filename;
+        if (decrypt_names) info.filename = core::decrypt_object(impl_->kek.view(), o, &impl_->last_profile).filename;
         out.push_back(std::move(info));
     }
     return out;
@@ -221,5 +237,7 @@ std::size_t Vault::garbage_collect() {
 }
 
 const core::VerifiedState& Vault::state() const { return impl_->verified; }
+const PhaseProfile& Vault::open_profile() const { return impl_->open_profile; }
+const PhaseProfile& Vault::last_profile() const { return impl_->last_profile; }
 
 }  // namespace vault

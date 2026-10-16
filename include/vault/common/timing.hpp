@@ -30,6 +30,11 @@ enum class Phase : std::uint8_t { Algorithm, Serialization, Filesystem, MemoryCo
 struct PhaseProfile {
     double ms[static_cast<int>(Phase::kCount)] = {};
     double& operator[](Phase p) { return ms[static_cast<int>(p)]; }
+    double operator[](Phase p) const { return ms[static_cast<int>(p)]; }
+    PhaseProfile& operator+=(const PhaseProfile& o) {
+        for (int i = 0; i < static_cast<int>(Phase::kCount); ++i) ms[i] += o.ms[i];
+        return *this;
+    }
 };
 
 // RAII-таймер: добавляет прошедшее время к профилю (если профиль задан).

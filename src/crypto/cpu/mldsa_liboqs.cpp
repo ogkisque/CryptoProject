@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "vault/common/error.hpp"
+#include "vault/common/thread_pool.hpp"
 #include "vault/crypto/cpu_backends.hpp"
 
 extern "C" {
@@ -29,14 +30,15 @@ struct SigDeleter {
 
 class CpuSigBackend final : public ISigBackend {
 public:
-    CpuSigBackend() : sig_(OQS_SIG_new(OQS_SIG_alg_ml_dsa_65)) {
+    explicit CpuSigBackend(unsigned threads) : sig_(OQS_SIG_new(OQS_SIG_alg_ml_dsa_65)) {
+        if (threads > 1) pool_ = shared_thread_pool(threads);
         if (!sig_) fail("ML-DSA-65 is not available in liboqs");
         if (sig_->length_public_key != kMlDsa65PublicKeySize || sig_->length_secret_key != kMlDsa65SecretKeySize ||
             sig_->length_signature != kMlDsa65SignatureSize || !sig_->sig_with_ctx_support)
             fail("unexpected ML-DSA-65 parameters");
     }
 
-    std::string_view name() const override { return "cpu"; }
+    std::string_view name() const override { return pool_ ? "cpu-mt" : "cpu"; }
 
     SigKeyPair keygen(std::optional<ByteView> seed) override {
         SigKeyPair kp{Bytes(kMlDsa65PublicKeySize), SecureBytes(kMlDsa65SecretKeySize)};
@@ -66,12 +68,12 @@ public:
         out.count = count;
         out.public_keys.assign(count * kMlDsa65PublicKeySize, 0);
         out.secret_keys = SecureBytes(count * kMlDsa65SecretKeySize);
-        for (std::size_t i = 0; i < count; ++i) {
+        for_each_index(count, [&](std::size_t i) {
             std::optional<ByteView> s;
             if (seeds) s = seeds->subspan(i * kMlDsa65KeygenSeedSize, kMlDsa65KeygenSeedSize);
             keygen_into(out.public_keys.data() + i * kMlDsa65PublicKeySize,
                         out.secret_keys.data() + i * kMlDsa65SecretKeySize, s);
-        }
+        });
         record(timing, t0);
     }
 
@@ -82,13 +84,13 @@ public:
         if (rnds && rnds->size() != b.count * kMlDsa65SignRandSize) fail("rnds size mismatch");
         auto t0 = Clock::now();
         b.signatures.assign(b.count * kMlDsa65SignatureSize, 0);
-        for (std::size_t i = 0; i < b.count; ++i) {
+        for_each_index(b.count, [&](std::size_t i) {
             std::optional<ByteView> r;
             if (rnds) r = rnds->subspan(i * kMlDsa65SignRandSize, kMlDsa65SignRandSize);
             sign_into(b.signatures.data() + i * kMlDsa65SignatureSize,
                       b.secret_keys.view().subspan(i * kMlDsa65SecretKeySize, kMlDsa65SecretKeySize),
                       ByteView(b.messages).subspan(i * b.message_size, b.message_size), ctx, r);
-        }
+        });
         record(timing, t0);
     }
 
@@ -98,16 +100,29 @@ public:
         if (b.signatures.size() != b.count * kMlDsa65SignatureSize) fail("signatures size mismatch");
         auto t0 = Clock::now();
         b.verify_ok.assign(b.count, 0);
-        for (std::size_t i = 0; i < b.count; ++i)
+        for_each_index(b.count, [&](std::size_t i) {
             b.verify_ok[i] = verify(ByteView(b.public_keys).subspan(i * kMlDsa65PublicKeySize, kMlDsa65PublicKeySize),
                                     ByteView(b.messages).subspan(i * b.message_size, b.message_size), ctx,
                                     ByteView(b.signatures).subspan(i * kMlDsa65SignatureSize, kMlDsa65SignatureSize))
                                  ? 1
                                  : 0;
+        });
         record(timing, t0);
     }
 
 private:
+    template <typename Fn>
+    void for_each_index(std::size_t count, Fn&& fn) {
+        if (!pool_ || count < 2) {
+            for (std::size_t i = 0; i < count; ++i) fn(i);
+            return;
+        }
+        std::size_t parts = std::min<std::size_t>(count, std::size_t{pool_->size()} * 4);
+        pool_->parallel_for(parts, [&](std::size_t k) {
+            for (std::size_t i = count * k / parts; i < count * (k + 1) / parts; ++i) fn(i);
+        });
+    }
+
     using Clock = std::chrono::steady_clock;
     static void record(TimingBreakdown* t, Clock::time_point t0) {
         if (!t) return;
@@ -150,10 +165,13 @@ private:
     }
 
     std::unique_ptr<OQS_SIG, SigDeleter> sig_;
+    std::shared_ptr<ThreadPool> pool_;
 };
 
 }  // namespace
 
-std::shared_ptr<ISigBackend> make_cpu_sig_backend(unsigned) { return std::make_shared<CpuSigBackend>(); }
+std::shared_ptr<ISigBackend> make_cpu_sig_backend(unsigned threads) {
+    return std::make_shared<CpuSigBackend>(threads);
+}
 
 }  // namespace vault::crypto

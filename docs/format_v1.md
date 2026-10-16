@@ -182,3 +182,17 @@ Decaps выполняется только после того, как прош�
 * **Rollback:** отсутствие `trusted_generation` при наличии только более старых поколений — `VerifyStep::Generation`.
 * **Orphan'ы при commit:** перед записью N+1 удаляются поколения > N и `*.tmp` (см. журнал этапа 3).
 * **`trusted_state.bin.tmp`** — остаток прерванного обновления anchor; игнорируется при чтении, перезаписывается следующим обновлением.
+
+## 15. Плоские буферы batch-API (этап 4)
+
+Единая раскладка для CPU, CPU-MT и GPU (все размеры в байтах; элементы идут подряд, без padding):
+
+| Структура | Поле | Раскладка |
+|---|---|---|
+| массив `Hash256` | листья, выход SHA3-batch | `count * 32`, `sizeof(Hash256) == 32` (`static_assert`) |
+| `PackedBatch` (`crypto/packed_batch.hpp`) | входы SHA3-batch переменной длины | `data` (конкатенация) + `offsets[count + 1]` (u64); элемент i = `data[offsets[i], offsets[i+1])` |
+| `KemBatch` | `public_keys` / `secret_keys` / `ciphertexts` / `shared_secrets` | `count * 1184` / `2400` / `1088` / `32` |
+| `SigBatch` | `public_keys` / `secret_keys` / `messages` / `signatures` / `verify_ok` | `count * 1952` / `4032` / `message_size` / `3309` / `1` (0 или 1) |
+| seeds | `keygen_batch` ML-KEM / ML-DSA, `encaps_batch`, `rnds` | `count * 64` / `32`, `count * 32`, `count * 32` |
+
+Секретные поля (`secret_keys`, `shared_secrets`) — `SecureBytes`. GPU-реализации обязаны обнулять временные device-буферы с секретами.
