@@ -104,9 +104,15 @@ BenchConfig load_bench_config(const std::filesystem::path& json_path) {
     };
     runs("warmup_runs", cfg.warmup_runs, 0);
     runs("measured_runs", cfg.measured_runs, 1);
-    if (j.contains("include_alloc_in_total")) cfg.include_alloc_in_total = j["include_alloc_in_total"].get<bool>();
-    if (j.contains("output_csv")) cfg.output_csv = j["output_csv"].get<std::string>();
-    if (j.contains("output_json")) cfg.output_json = j["output_json"].get<std::string>();
+    if (j.contains("include_alloc_in_total")) {
+        if (!j["include_alloc_in_total"].is_boolean()) bad("'include_alloc_in_total' must be a boolean");
+        cfg.include_alloc_in_total = j["include_alloc_in_total"].get<bool>();
+    }
+    for (const char* key : {"output_csv", "output_json"}) {
+        if (!j.contains(key)) continue;
+        if (!j[key].is_string()) bad(std::string("'") + key + "' must be a string");
+        (std::string(key) == "output_csv" ? cfg.output_csv : cfg.output_json) = j[key].get<std::string>();
+    }
     return cfg;
 }
 

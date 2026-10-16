@@ -47,7 +47,7 @@ if(VAULT_CORE_SOURCES)
 
   find_package(Threads REQUIRED)
   # Версия сборки для SystemInfo (воспроизводимость benchmark'а).
-  execute_process(COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} rev-parse --short=12 HEAD
+  execute_process(COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} describe --always --dirty --abbrev=12
                   OUTPUT_VARIABLE VAULT_GIT_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
   if(NOT VAULT_GIT_COMMIT)
     set(VAULT_GIT_COMMIT "unknown")

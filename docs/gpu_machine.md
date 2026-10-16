@@ -1,41 +1,35 @@
-# Работа на GPU-машине
+# GPU-машина
 
-Машина разработки (без GPU) собирает и тестирует только CPU-часть. Всё, что связано с CUDA/cuPQC, собирается и запускается на отдельной машине с NVIDIA RTX 3050 (SM 86).
+На GPU-машину мы выходим **один раз** (модель — `docs/gpu_single_run.md`). Весь код к этому моменту написан и проверен на машине разработки, в том числе компилируется с CUDA и cuPQC. На GPU-машине только подготавливается окружение и запускается один скрипт.
 
-## Требования
+## Требования (подготовить заранее, до прихода с кодом)
 
 | Компонент | Версия |
 |---|---|
-| NVIDIA driver | совместимый с CUDA 12.x |
-| CUDA Toolkit | ≥ 12.0 (`nvcc`) |
-| cuPQC SDK | последняя доступная; путь задаётся в `CUPQC_ROOT` |
+| NVIDIA driver | поддерживающий выбранную версию CUDA |
+| CUDA Toolkit | **та же major.minor**, с которой код собирался на машине разработки (записана в gate) |
+| cuPQC SDK | **та же версия**; путь — `CUPQC_ROOT` |
 | CMake | ≥ 3.22 |
-| GCC | ≥ 12, поддерживаемый установленным nvcc как host compiler |
+| GCC | поддерживаемый этим nvcc как host compiler |
 | OpenSSL | ≥ 3.0 + headers (`libssl-dev`) |
 | Python | 3.10+, `pip install -r bench/analysis/requirements.txt` |
+| RAM | ≥ 4 GiB свободной (пик полной матрицы — 1.6 GiB, см. `docs/gpu_single_run.md`) |
 
-## Перенос кода
+Сеть не нужна: зависимости FetchContent приносятся архивом (`scripts/vendor_deps.sh`).
 
-Через git (предпочтительно) или `rsync -a --exclude build ./ gpu-host:~/crypto/`.
-
-## Сборка и проверка
+## Запуск
 
 ```bash
-./scripts/check_gpu_env.sh                 # драйвер, nvcc, compute_cap 8.6, cuPQC
-CUPQC_ROOT=/opt/cupqc ./scripts/build_gpu.sh   # сборка + ctest (включая tests/gpu)
+CUPQC_ROOT=/opt/cupqc ./scripts/gpu_run_all.sh --time-budget 120
+```
+
+Перед уходом прочитать `RUN_SUMMARY.txt`. Унести `bench/results/<timestamp>_<host>.tar.gz`: там логи, CSV/JSON, результаты ctest, окружение и графики. Анализ делается дома (`docs/stages/07_experiments.md`, часть В).
+
+## Ручные команды (только для отладки, если что-то пошло не так)
+
+```bash
+./scripts/check_gpu_env.sh
+CUPQC_ROOT=/opt/cupqc ./scripts/build_gpu.sh
 ctest --test-dir build/gpu -L gpu --output-on-failure
+./scripts/run_bench.sh bench/configs/quick.json
 ```
-
-## Benchmark
-
-```bash
-./scripts/run_bench.sh bench/configs/quick.json   # smoke
-./scripts/run_bench.sh bench/configs/full.json    # полная матрица (долго)
-```
-Результаты попадают в `bench/results/<timestamp>_<host>/`. Эту папку затем копируют обратно (или коммитят только `summary.md` и графики).
-
-## Что записать в журнал этапа после первого запуска
-
-- модель GPU, объём VRAM, драйвер, CUDA, версия cuPQC;
-- реальные имена CMake-целей и заголовков cuPQC (поправить `cmake/Cuda.cmake`);
-- ответы на вопросы из `docs/stages/06_gpu_pqc.md` §6.0.

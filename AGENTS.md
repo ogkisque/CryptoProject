@@ -25,9 +25,12 @@
 | 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ✅ готово (2026-10-16) |
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ✅ готово (2026-10-16) |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ✅ готово (2026-10-16) |
-| 5. GPU SHA3 / Merkle (на GPU-машине) | `docs/stages/05_gpu_sha3_merkle.md` | ☐ |
-| 6. GPU ML-KEM / ML-DSA через cuPQC (на GPU-машине) | `docs/stages/06_gpu_pqc.md` | ☐ |
-| 7. Эксперименты и анализ | `docs/stages/07_experiments.md` | ☐ |
+| 5. GPU SHA3 / Merkle — код и проверка без GPU (часть А) | `docs/stages/05_gpu_sha3_merkle.md` | ☐ |
+| 6. GPU ML-KEM / ML-DSA через cuPQC — код и проверка без GPU (часть А) | `docs/stages/06_gpu_pqc.md` | ☐ |
+| 7. Анализ, сценарий запуска, офлайн-сборка (часть А) | `docs/stages/07_experiments.md` | ☐ |
+| **Gate:** готовность к запуску на GPU | `docs/gpu_single_run.md` | ☐ |
+| **Единственный запуск на GPU** (`scripts/gpu_run_all.sh`) | `docs/gpu_single_run.md` | ☐ |
+| Анализ результатов и выводы (этап 7, часть В) | `docs/stages/07_experiments.md` | ☐ |
 
 Подробный прогресс ведётся в чекбоксах и в «Журнале прогресса» каждого stage-документа.
 
@@ -40,7 +43,7 @@
 - **CUDA 12 + cuPQC SDK** — только на GPU-машине (`VAULT_ENABLE_CUDA=ON`).
 - Python (pandas, matplotlib) — анализ результатов.
 
-**Машины.** На машине разработки GPU нет: здесь собирается и тестируется только CPU-часть, GPU-код пишется «вслепую» и проверяется на GPU-машине (`docs/gpu_machine.md`).
+**Машины и модель работы.** На машине разработки GPU нет. **На GPU-машину выходим один раз** (`docs/gpu_single_run.md`): весь код этапов 5–7 пишется и проверяется здесь. Сюда входят сборка с CUDA Toolkit и cuPQC без GPU, kernel-логика как `__host__ __device__` функции, протестированные на CPU, host-часть GPU-backend'ов, `analyze.py` на синтетических GPU-данных и прогон `scripts/gpu_run_all.sh` до конца. Затем один запуск скрипта на GPU-машине и анализ унесённого архива. **Не планировать работ, требующих повторного доступа к GPU:** всё, что может понадобиться, скрипт должен снять за один проход, а для каждого GPU-сбоя должен быть запасной путь.
 
 ## Архитектура
 
@@ -94,7 +97,7 @@ cuda/                      GPU-реализации (.cu), только при V
 tests/                     header_check.cpp; unit/ integration/ tamper/ (есть); crash/ (есть); gpu/ (пусто); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
 scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, run_bench.sh
-docs/                      format_v1.md, gpu_machine.md, stages/01..07
+docs/                      format_v1.md, gpu_single_run.md (модель «один запуск» + gate), gpu_machine.md, stages/01..07
 ```
 
 ## Сборка
@@ -127,3 +130,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Этап 3 завершён: `GenerationStorage` (immutable поколения + hardlink), `CommitProtocol` с 6 crash-точками, шаги 7–8 verifier'а (rollback → `Generation`, fork → `ManifestHash`), `flock` на транзакцию, `vault gc`, предупреждения об orphan'ах. Тесты: rollback/fork, crash (CLI + `VAULT_CRASH_POINT`), параллельные `add`. Подробности — `docs/stages/03_rollback_crash_safety.md`. |
 | 2026-10-16 | Ревью этапа 3: исправлена гонка «проверка N / trusted N+1», из-за которой параллельный commit мог удалить актуальное доверенное поколение (`VerifyReport::trusted_state` + проверка актуальности в `commit`); `init` больше не удаляет чужие каталоги при `AlreadyExists`. 128 тестов. Подробности — `docs/stages/03_rollback_crash_safety.md`, раздел «Ревью». |
 | 2026-10-16 | Этап 4 завершён: `ThreadPool` и CPU-MT backend'ы (hash по байтам, Merkle по уровням, ML-KEM/ML-DSA batch), `--backend cpu|cpu-mt|gpu` и `--threads`, GPU-ветка `make_backends` (не компилировалась), плоские форматы batch (`format_v1.md` §15), профиль фаз (`-v`), benchmark framework + `vault benchmark --config --csv --json`, тест эквивалентности backend'ов. Подробности — `docs/stages/04_backend_abstraction.md`. |
+| 2026-10-16 | Ревью этапа 4: benchmark теперь сверяет результаты каждого backend'а с reference (SHA3, Merkle root, ключи, encaps, подписи) — неверный GPU-backend не даст «быстрых» данных; `merkle_verify` не зависит от размера объектов; в JSON записываются потоки, а в `git_commit` — признак `-dirty`. Полная матрица на CPU: 10.5 мин, 1.6 GiB. **План этапов 5–7 переписан под модель «один запуск на GPU»** (`docs/gpu_single_run.md`, gate в таблице статуса). 154 теста. |

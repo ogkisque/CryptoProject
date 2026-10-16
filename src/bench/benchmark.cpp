@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 
 #include "vault/common/error.hpp"
+#include "vault/common/thread_pool.hpp"
 #include "vault/merkle/merkle.hpp"
 
 namespace vault::bench {
@@ -106,9 +107,28 @@ void require(bool ok, const char* what) {
     if (!ok) throw VaultError(ErrorCode::Internal, std::string("benchmark self-check failed: ") + what);
 }
 
+// Пара i из batch'а работает с reference: encaps(pk) -> decaps(sk) даёт тот же секрет.
+bool kem_pair_works(crypto::IKemBackend& ref, const crypto::KemBatch& b, std::size_t i) {
+    ByteView pk = ByteView(b.public_keys).subspan(i * kMlKem768PublicKeySize, kMlKem768PublicKeySize);
+    ByteView sk = b.secret_keys.view().subspan(i * kMlKem768SecretKeySize, kMlKem768SecretKeySize);
+    crypto::KemEncapsResult e = ref.encaps(pk, std::nullopt);
+    return constant_time_equal(ref.decaps(sk, e.ciphertext).view(), e.shared_secret.view());
+}
+
+// Пара i из batch'а работает с reference: sign(sk) -> verify(pk).
+bool sig_pair_works(crypto::ISigBackend& ref, const crypto::SigBatch& b, std::size_t i) {
+    ByteView pk = ByteView(b.public_keys).subspan(i * kMlDsa65PublicKeySize, kMlDsa65PublicKeySize);
+    ByteView sk = b.secret_keys.view().subspan(i * kMlDsa65SecretKeySize, kMlDsa65SecretKeySize);
+    const Bytes msg = {'c', 'h', 'e', 'c', 'k'};
+    Bytes sig = ref.sign(sk, msg, label::kManifestSigContext, std::nullopt);
+    return ref.verify(pk, msg, label::kManifestSigContext, sig);
+}
+
 }  // namespace
 
-std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
+std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) { return run_benchmarks(cfg, {}); }
+
+std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<BenchBackend> extra) {
     std::vector<NamedBackend> backs;
     for (const auto& bc : cfg.backends) {
         NamedBackend nb;
@@ -120,6 +140,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
         }
         backs.push_back(std::move(nb));
     }
+    for (auto& e : extra) backs.push_back(NamedBackend{std::move(e.name), std::move(e.backends), {}});
     crypto::CryptoBackends ref = crypto::make_backends({});  // подготовка входов — всегда на reference CPU
     std::mt19937_64 rng(0x5EEDB10C);
     std::vector<BenchRecord> out;
@@ -135,7 +156,32 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
     };
 
     for (BenchOp op : cfg.ops) {
-        if (op == BenchOp::Sha3 || op == BenchOp::MerkleBuild || op == BenchOp::MerkleVerify) {
+        if (op == BenchOp::MerkleVerify) {
+            // Проверка proof'ов не читает сами объекты: стоимость зависит только от числа листьев.
+            // Поэтому серия идёт по object_counts (object_size = 0), листья — случайные хеши, без
+            // генерации гигабайтов данных. Пересчёт root по объектам измеряет merkle_build.
+            for (std::size_t count : cfg.object_counts) {
+                std::vector<Hash256> leaves(count);
+                for (auto& l : leaves) {
+                    Bytes r = random_bytes(rng, kHashSize);
+                    std::copy(r.begin(), r.end(), l.begin());
+                }
+                merkle::MerkleTree tree = ref.merkle->build_tree(leaves, nullptr);
+                std::vector<merkle::MerkleProof> proofs;
+                proofs.reserve(count);
+                for (std::size_t i = 0; i < count; ++i) proofs.push_back(merkle::make_proof(tree, i));
+                for_each_backend(op, 0, count, [&](NamedBackend& nb) {
+                    std::vector<std::uint8_t> ok(count);
+                    Samples s = measure(cfg, [&](TimingBreakdown& tb) {
+                        nb.backends->merkle->verify_proofs_batch(leaves, proofs, tree.root, ok, &tb);
+                    });
+                    require(std::all_of(ok.begin(), ok.end(), [](auto v) { return v == 1; }), "merkle proofs");
+                    return make_record(op, nb.name, 0, count, s, 0);
+                });
+            }
+            continue;
+        }
+        if (op == BenchOp::Sha3 || op == BenchOp::MerkleBuild) {
             for (std::size_t size : cfg.object_sizes)
                 for (std::size_t count : cfg.object_counts) {
                     // Деление вместо умножения: без переполнения size_t.
@@ -148,6 +194,10 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
                     views.reserve(count);
                     for (std::size_t i = 0; i < count; ++i) views.emplace_back(data.data() + i * size, size);
                     const double bytes = static_cast<double>(size) * static_cast<double>(count);
+                    // Эталон для самопроверки: результат любого backend'а обязан совпасть с reference
+                    // байт-в-байт (§42). Неверный результат = ошибка прогона, а не «быстрый» замер.
+                    std::vector<Hash256> ref_leaves(count);
+                    ref.merkle->compute_leaves(views, ref_leaves, nullptr);
 
                     if (op == BenchOp::Sha3) {
                         for_each_backend(op, size, count, [&](NamedBackend& nb) {
@@ -155,9 +205,11 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
                             Samples s = measure(cfg, [&](TimingBreakdown& tb) {
                                 nb.backends->hash->domain_hash_batch(domain::kMerkleLeaf, views, out_h, &tb);
                             });
+                            require(out_h == ref_leaves, "SHA3 batch != reference");
                             return make_record(op, nb.name, size, count, s, bytes);
                         });
-                    } else if (op == BenchOp::MerkleBuild) {
+                    } else {
+                        const Hash256 ref_root = ref.merkle->root_from_leaves(ref_leaves, nullptr);
                         for_each_backend(op, size, count, [&](NamedBackend& nb) {
                             std::vector<Hash256> leaves(count);
                             Hash256 root{};
@@ -165,22 +217,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
                                 nb.backends->merkle->compute_leaves(views, leaves, &tb);
                                 root = nb.backends->merkle->root_from_leaves(leaves, &tb);
                             });
-                            (void)root;
-                            return make_record(op, nb.name, size, count, s, bytes);
-                        });
-                    } else {  // MerkleVerify: пакетная проверка proofs для ВСЕХ листьев
-                        std::vector<Hash256> leaves(count);
-                        ref.merkle->compute_leaves(views, leaves, nullptr);
-                        merkle::MerkleTree tree = ref.merkle->build_tree(leaves, nullptr);
-                        std::vector<merkle::MerkleProof> proofs;
-                        proofs.reserve(count);
-                        for (std::size_t i = 0; i < count; ++i) proofs.push_back(merkle::make_proof(tree, i));
-                        for_each_backend(op, size, count, [&](NamedBackend& nb) {
-                            std::vector<std::uint8_t> ok(count);
-                            Samples s = measure(cfg, [&](TimingBreakdown& tb) {
-                                nb.backends->merkle->verify_proofs_batch(leaves, proofs, tree.root, ok, &tb);
-                            });
-                            require(std::all_of(ok.begin(), ok.end(), [](auto v) { return v == 1; }), "merkle proofs");
+                            require(leaves == ref_leaves && root == ref_root, "Merkle leaves/root != reference");
                             return make_record(op, nb.name, size, count, s, bytes);
                         });
                     }
@@ -202,8 +239,19 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
                     Samples s;
                     if (op == BenchOp::MlKemKeygen) {
                         s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->kem->keygen_batch(batch, std::nullopt, kb, &tb); });
+                        // Ключи backend'а работоспособны: reference encaps -> reference decaps.
+                        require(kb.count == batch && kem_pair_works(*ref.kem, kb, 0) && kem_pair_works(*ref.kem, kb, batch - 1),
+                                "ML-KEM keygen: keys do not work with reference");
                     } else if (op == BenchOp::MlKemEncaps) {
                         s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->kem->encaps_batch(prep, std::nullopt, &tb); });
+                        // Reference decaps ciphertext'ов backend'а даёт те же секреты.
+                        crypto::KemBatch chk;
+                        chk.count = prep.count;
+                        chk.secret_keys = prep.secret_keys.clone();
+                        chk.ciphertexts = prep.ciphertexts;
+                        ref.kem->decaps_batch(chk, nullptr);
+                        require(constant_time_equal(chk.shared_secrets.view(), prep.shared_secrets.view()),
+                                "ML-KEM encaps: reference decaps disagrees");
                     } else {
                         Bytes expected(prep.shared_secrets.view().begin(), prep.shared_secrets.view().end());
                         s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->kem->decaps_batch(prep, &tb); });
@@ -225,10 +273,22 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) {
                     Samples s;
                     if (op == BenchOp::MlDsaKeygen) {
                         s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->sig->keygen_batch(batch, std::nullopt, sb, &tb); });
+                        require(sb.count == batch && sig_pair_works(*ref.sig, sb, 0) && sig_pair_works(*ref.sig, sb, batch - 1),
+                                "ML-DSA keygen: keys do not work with reference");
                     } else if (op == BenchOp::MlDsaSign) {
                         s = measure(cfg, [&](TimingBreakdown& tb) {
                             nb.backends->sig->sign_batch(prep, label::kManifestSigContext, std::nullopt, &tb);
                         });
+                        // Все подписи backend'а проходят reference verify.
+                        crypto::SigBatch chk;
+                        chk.count = prep.count;
+                        chk.message_size = prep.message_size;
+                        chk.public_keys = prep.public_keys;
+                        chk.messages = prep.messages;
+                        chk.signatures = prep.signatures;
+                        ref.sig->verify_batch(chk, label::kManifestSigContext, nullptr);
+                        require(std::all_of(chk.verify_ok.begin(), chk.verify_ok.end(), [](auto v) { return v == 1; }),
+                                "ML-DSA sign: reference verify rejects signatures");
                     } else {
                         s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->sig->verify_batch(prep, label::kManifestSigContext, &tb); });
                         require(std::all_of(prep.verify_ok.begin(), prep.verify_ok.end(), [](auto v) { return v == 1; }),
@@ -299,6 +359,7 @@ void write_json(const std::filesystem::path& path, const SystemInfo& info, const
     for (const auto& b : cfg.backends) backends.push_back(std::string(crypto::to_string(b.kind)));
     j["config"] = {{"ops", ops}, {"backends", backends}, {"object_sizes", cfg.object_sizes},
                    {"object_counts", cfg.object_counts}, {"batch_sizes", cfg.batch_sizes},
+                   {"cpu_threads", cfg.backends.empty() ? 0u : resolve_thread_count(cfg.backends.front().cpu_threads)},
                    {"max_total_bytes", cfg.max_total_bytes}, {"warmup_runs", cfg.warmup_runs},
                    {"measured_runs", cfg.measured_runs}, {"include_alloc_in_total", cfg.include_alloc_in_total}};
     json recs = json::array();

@@ -93,8 +93,9 @@ TEST(Benchmark, RunsAllOpsSkipsOversizedAndUnavailableBackends) {
     BenchConfig cfg = load_bench_config(d.write("t.json", kTinyConfig));
     std::vector<BenchRecord> recs = run_benchmarks(cfg);
 
-    // sha3/merkle: 2 размера x 2 количества x 3 backend'а x 3 операции; PQC: 2 batch x 3 backend'а x 6 операций.
-    EXPECT_EQ(recs.size(), 2u * 2 * 3 * 3 + 2 * 3 * 6);
+    // sha3/merkle_build: 2 размера x 2 количества x 3 backend'а x 2 операции;
+    // merkle_verify от размера не зависит: 2 количества x 3 backend'а; PQC: 2 batch x 3 backend'а x 6 операций.
+    EXPECT_EQ(recs.size(), 2u * 2 * 3 * 2 + 2 * 3 + 2 * 3 * 6);
     std::size_t measured = 0, over = 0, gpu_skipped = 0;
     for (const auto& r : recs) {
         if (r.backend == "gpu" && !crypto::gpu_backend_compiled()) {
@@ -119,10 +120,10 @@ TEST(Benchmark, RunsAllOpsSkipsOversizedAndUnavailableBackends) {
         EXPECT_GT(r.latency_ms, 0.0);
         EXPECT_GE(r.total_ms.max, r.total_ms.min);
         EXPECT_GT(r.kernel_ms.median, 0.0);  // CPU backend заполняет kernel_ms
-        if (r.op == BenchOp::Sha3 || r.op == BenchOp::MerkleBuild || r.op == BenchOp::MerkleVerify)
-            EXPECT_GT(r.throughput_gbps, 0.0);
+        if (r.op == BenchOp::Sha3 || r.op == BenchOp::MerkleBuild) EXPECT_GT(r.throughput_gbps, 0.0);
+        if (r.op == BenchOp::MerkleVerify) EXPECT_EQ(r.object_size, 0u);
     }
-    EXPECT_EQ(over, 3u * 2 /*cpu, cpu-mt*/);  // 3 операции, комбинация 4096x50 (gpu учтён в gpu_skipped)
+    EXPECT_EQ(over, 2u * 2 /*cpu, cpu-mt*/);  // sha3 и merkle_build, комбинация 4096x50 (gpu учтён в gpu_skipped)
     EXPECT_GT(measured, 0u);
     EXPECT_GT(gpu_skipped, 0u);
 }
@@ -166,4 +167,49 @@ TEST(Benchmark, WritesCsvAndJson) {
     EXPECT_EQ(j["config"]["measured_runs"], 3);
     EXPECT_EQ(j["records"][0]["op"], "sha3");
     EXPECT_GT(j["records"][0]["total_ms"]["median"].get<double>(), 0.0);
+}
+
+// Самопроверка benchmark'а: backend с неверным результатом должен ронять прогон,
+// а не давать «быстрый» замер (важно для единственного запуска на GPU).
+namespace {
+class WrongHash final : public crypto::IHashBackend {
+public:
+    explicit WrongHash(std::shared_ptr<crypto::IHashBackend> inner) : inner_(std::move(inner)) {}
+    std::string_view name() const override { return "wrong"; }
+    Hash256 sha3_256(ByteView d) override { return inner_->sha3_256(d); }
+    Hash256 domain_hash(std::uint8_t dom, ByteView d) override { return inner_->domain_hash(dom, d); }
+    void sha3_256_batch(std::span<const ByteView> in, std::span<Hash256> out, TimingBreakdown* t) override {
+        inner_->sha3_256_batch(in, out, t);
+    }
+    void domain_hash_batch(std::uint8_t dom, std::span<const ByteView> in, std::span<Hash256> out,
+                           TimingBreakdown* t) override {
+        inner_->domain_hash_batch(dom, in, out, t);
+        if (!out.empty()) out.back()[0] ^= 1;  // порча последнего хеша
+    }
+
+private:
+    std::shared_ptr<crypto::IHashBackend> inner_;
+};
+}  // namespace
+
+TEST(Benchmark, SelfCheckRejectsWrongBackendResults) {
+    crypto::CryptoBackends good = crypto::make_backends({});
+    auto wrong = std::make_shared<WrongHash>(good.hash);
+    std::vector<std::uint8_t> data(10 * 64, 7);
+    std::vector<ByteView> views;
+    for (std::size_t i = 0; i < 10; ++i) views.emplace_back(data.data() + i * 64, 64);
+    std::vector<Hash256> a(10), b(10);
+    good.hash->domain_hash_batch(0, views, a, nullptr);
+    wrong->domain_hash_batch(0, views, b, nullptr);
+    EXPECT_NE(a, b);  // предпосылка: подделка действительно отличается
+    BenchConfig cfg;
+    cfg.ops = {BenchOp::Sha3};
+    cfg.object_sizes = {64};
+    cfg.object_counts = {10};
+    cfg.warmup_runs = 0;
+    cfg.measured_runs = 1;
+    crypto::CryptoBackends bad = good;
+    bad.hash = wrong;
+    EXPECT_NO_THROW(run_benchmarks(cfg, {{"good", good}}));
+    EXPECT_THROW(run_benchmarks(cfg, {{"wrong", bad}}), VaultError);
 }

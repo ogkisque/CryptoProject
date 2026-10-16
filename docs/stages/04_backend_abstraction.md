@@ -62,6 +62,26 @@
 |---|---|
 | 2026-10-16 | Этап 4 завершён: `ThreadPool`, CPU-MT backend'ы (hash/Merkle/ML-KEM/ML-DSA), `make_backends` для cpu/cpu-mt/gpu, плоские форматы batch, профиль фаз, benchmark framework и `vault benchmark`. 153 теста проходят (Release, ASan/UBSan). Детали ниже. |
 
+
+### Ревью (2026-10-16)
+
+Проверено: `ThreadPool` (синхронизация завершения через `completed == n` под мьютексом, вложенных `parallel_for` нет: внутри задач Merkle и proof'ов вызывается только одиночный `domain_hash`), балансировка SHA3 по байтам, независимость срезов выходных буферов в CPU-MT KEM/DSA, `make_backends` для трёх видов, статистика (`stddev` по n−1), разбор конфига. Дефектов корректности в CPU-MT не найдено.
+
+| # | Находка | Исправление |
+|---|---|---|
+| R1 | **Benchmark не проверял результаты SHA3, Merkle root, ML-KEM keygen/encaps и ML-DSA keygen/sign.** Неверный GPU-backend дал бы правдоподобный «быстрый» замер, а при единственном запуске на GPU это не перепроверить | эталон считается на reference до замеров: SHA3 и листья/root сравниваются байт-в-байт; ключи KEM/DSA проверяются через reference encaps/decaps и sign/verify; ciphertext'ы backend'а — через reference decaps; подписи — через reference verify. Несовпадение роняет прогон (`benchmark self-check failed`). Тест `Benchmark.SelfCheckRejectsWrongBackendResults` (подменённый hash-backend) |
+| R2 | `merkle_verify` гонялся для каждого `object_size`, хотя от размера объектов не зависит: 5 одинаковых серий, генерация до 4 GiB данных ради листьев, бессмысленный `throughput_gbps` | серия идёт только по `object_counts` (`object_size = 0`), листья — случайные хеши, throughput не считается |
+| R3 | В JSON-результатах не записывалось число потоков `cpu-mt` | `config.cpu_threads` (фактическое, после `resolve_thread_count`) |
+| R4 | `git_commit` в `SystemInfo` берётся при configure и не показывал незакоммиченные изменения | `git describe --always --dirty`; сценарий единственного запуска всегда делает свежий configure |
+| R5 | `include_alloc_in_total`, `output_csv` и `output_json` не проверялись по типу: падение `nlohmann::type_error` вместо понятной ошибки конфига | проверка типов → `VaultError(InvalidArgument)` |
+| R6 | Не было способа подставить в benchmark свой набор backend'ов (нужно для теста самопроверки) | перегрузка `run_benchmarks(cfg, std::vector<BenchBackend>)` |
+
+**Замер полной матрицы на этой машине** (для плана единственного запуска): `full.json` для `cpu` и `cpu-mt`, 12 потоков — 10 мин 34 с, пиковая RSS 1.6 GiB, 24 комбинации пропущены по `max_total_bytes`. SHA3 1 MiB × 1000: 0.50 GB/s (cpu) и 2.42 GB/s (cpu-mt). Это проверка работоспособности и оценка времени, а не данные для отчёта.
+
+**Изменение плана:** этапы 5–7 переписаны под модель «один запуск на GPU» — `docs/gpu_single_run.md`.
+
+Итого тестов: 154 (было 153), Release и ASan/UBSan зелёные.
+
 ### Заметки и отклонения
 
 * **`ThreadPool`** (`include/vault/common/thread_pool.hpp`, `src/common/thread_pool.cpp`): единственная операция `parallel_for(n, fn)`, вызывающий поток тоже работает, первое исключение из задач пробрасывается после завершения всех задач; одновременные вызовы сериализуются; не реентерабельный. Пул на заданное число потоков общий для всех backend'ов набора (`shared_thread_pool`), чтобы не плодить простаивающие потоки. Заголовок лежит в `include/`, а не в `src/common/`, как в плане, — так он виден тестам.

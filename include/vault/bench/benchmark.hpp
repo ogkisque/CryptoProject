@@ -52,6 +52,14 @@ struct BenchRecord {
 
 BenchConfig load_bench_config(const std::filesystem::path& json_path);
 std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg);
+
+// Дополнительные (уже созданные) наборы backend'ов поверх cfg.backends — для тестов
+// самопроверки и экспериментальных backend'ов. Результат каждого сверяется с reference.
+struct BenchBackend {
+    std::string name;
+    crypto::CryptoBackends backends;
+};
+std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<BenchBackend> extra);
 void write_csv(const std::filesystem::path& path, const std::vector<BenchRecord>& records);
 void write_json(const std::filesystem::path& path, const SystemInfo& info, const BenchConfig& cfg,
                 const std::vector<BenchRecord>& records);
