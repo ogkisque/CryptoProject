@@ -34,6 +34,7 @@ private:
 // Тесты атак проверяют не только факт ошибки, но и ожидаемый шаг.
 enum class VerifyStep {
     LoadTrustedState,
+    LoadSnapshot,  // объекты / kem.ct не читаются или имеют недопустимый вид
     LoadManifest,
     ManifestParse,
     FormatVersion,

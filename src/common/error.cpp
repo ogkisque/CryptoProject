@@ -5,6 +5,7 @@ namespace vault {
 const char* to_string(VerifyStep step) noexcept {
     switch (step) {
         case VerifyStep::LoadTrustedState: return "LoadTrustedState";
+        case VerifyStep::LoadSnapshot: return "LoadSnapshot";
         case VerifyStep::LoadManifest: return "LoadManifest";
         case VerifyStep::ManifestParse: return "ManifestParse";
         case VerifyStep::FormatVersion: return "FormatVersion";

@@ -91,7 +91,7 @@ include/vault/             ПУБЛИЧНЫЕ ИНТЕРФЕЙСЫ (готовы
   gpu/                     фабрики GPU backend'ов
 src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ и bench/ пока пусты)
 cuda/                      GPU-реализации (.cu), только при VAULT_ENABLE_CUDA
-tests/                     header_check.cpp; unit/ integration/ tamper/ (есть, 43 теста); crash/ gpu/ (пусто); vectors/
+tests/                     header_check.cpp; unit/ integration/ tamper/ (есть, 49 тестов); crash/ gpu/ (пусто); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
 scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, run_bench.sh
 docs/                      format_v1.md, gpu_machine.md, stages/01..07
@@ -121,3 +121,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 |---|---|
 | 2026-10-16 | Каркас проекта: структура каталогов, все публичные заголовки (`include/vault/**`, компилируются через `vault_header_check`), CMake с опциональной CUDA-частью, скрипты сборки и benchmark'а, конфиги benchmark'а, заглушка анализа, `docs/format_v1.md` с решениями по неоднозначностям, планы этапов 1–7. Реализаций нет. |
 | 2026-10-16 | Этап 1 завершён: `vault init/add/list/extract/remove/verify` работают, 43 теста проходят (в т.ч. под ASan/UBSan). Подробности и отклонения — в `docs/stages/01_minimal_vault.md`. Репозиторий — `CryptoProject/` (коммиты только локально, без push). |
+| 2026-10-16 | Ревью этапа 1: исправлено 8 проблем (tmp-файлы в objects/, длина kem.ct, частичный plaintext при ошибке записи в extract, GCM ≥ 2 GiB и др.), добавлены CLI-тесты, всего 49 тестов. Таблица — в `docs/stages/01_minimal_vault.md`. |

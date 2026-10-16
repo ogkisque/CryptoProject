@@ -20,7 +20,7 @@ class SecureBytes {
 public:
     SecureBytes() = default;
     explicit SecureBytes(std::size_t size);
-    SecureBytes(ByteView data);  // копирует данные
+    explicit SecureBytes(ByteView data);  // копирует данные (явно — чтобы секрет не копировался незаметно)
     ~SecureBytes();
 
     SecureBytes(const SecureBytes&) = delete;

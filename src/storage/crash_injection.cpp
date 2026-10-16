@@ -43,7 +43,7 @@ void crash_here(CrashPoint here) noexcept {
     try {
         if (here != CrashPoint::None && here == configured_crash_point()) std::_Exit(kCrashExitCode);
     } catch (...) {
-        std::_Exit(kCrashExitCode);
+        std::abort();  // неверное значение VAULT_CRASH_POINT — ошибка теста, а не "ожидаемый crash"
     }
 }
 

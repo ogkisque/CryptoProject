@@ -142,3 +142,23 @@ TEST_F(TamperTest, AadBindsFileId) {
     Vault v = Vault::open(paths(), backends());
     EXPECT_THROW(v.extract(nid), VaultError);
 }
+
+TEST_F(TamperTest, KemCiphertextWrongSizeRejectedAtOpen) {
+    Bytes ct = slurp(vault_dir / "kem.ct");
+    ct.pop_back();
+    spit(vault_dir / "kem.ct", ct);
+    try {
+        Vault::open(paths(), backends());
+        FAIL();
+    } catch (const VerificationError& e) {
+        EXPECT_EQ(e.step(), VerifyStep::LoadSnapshot);
+    }
+}
+
+TEST_F(TamperTest, StaleTmpFromCrashDoesNotBreakVault) {
+    // Остаток прерванной записи объекта лежит в корне vault, а не в objects/.
+    spit(vault_dir / (to_hex(as_view(id)) + ".obj.tmp"), Bytes(5, 0));
+    Vault v = Vault::open(paths(), backends());
+    EXPECT_NO_THROW(v.extract(id));
+    EXPECT_NO_THROW(v.add_bytes("y", Bytes(3, 3)));
+}

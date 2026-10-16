@@ -42,21 +42,30 @@ void write_output(const std::filesystem::path& path, ByteView data, bool force) 
             throw VaultError(ErrorCode::AlreadyExists, "output file exists (use --force): " + path.string());
         throw VaultError(ErrorCode::Io, "cannot create '" + path.string() + "': " + std::strerror(errno));
     }
+    // При любой ошибке частично записанный plaintext удаляется.
+    auto fail = [&](const char* what) {
+        int e = errno;
+        ::close(fd);
+        ::unlink(path.c_str());
+        throw VaultError(ErrorCode::Io, std::string(what) + " '" + path.string() + "': " + std::strerror(e));
+    };
     const std::uint8_t* p = data.data();
     std::size_t left = data.size();
     while (left > 0) {
         ssize_t n = ::write(fd, p, left);
         if (n < 0) {
             if (errno == EINTR) continue;
-            int e = errno;
-            ::close(fd);
-            throw VaultError(ErrorCode::Io, std::string("write failed: ") + std::strerror(e));
+            fail("write failed");
         }
         p += n;
         left -= static_cast<std::size_t>(n);
     }
-    ::fsync(fd);
-    ::close(fd);
+    if (::fsync(fd) != 0) fail("fsync failed");
+    if (::close(fd) != 0) {
+        int e = errno;
+        ::unlink(path.c_str());
+        throw VaultError(ErrorCode::Io, std::string("close failed: ") + std::strerror(e));
+    }
 }
 
 }  // namespace

@@ -30,9 +30,13 @@ VerifyReport StateVerifier::verify_current() const {
         snap = storage_.read_snapshot(ts.trusted_generation);
         st.kem_ct = storage_.read_kem_ct();
     } catch (const VaultError& e) {
-        throw VerificationError(VerifyStep::LoadManifest, e.what());
+        throw VerificationError(VerifyStep::LoadSnapshot, e.what());
     }
     st.generation = ts.trusted_generation;
+    // Неверный размер CT_KEM — это порча хранилища, а не внутренняя ошибка KEM.
+    // (В этапе 2 сюда добавится сверка с Manifest.kem_ct_hash.)
+    if (st.kem_ct.size() != kMlKem768CiphertextSize)
+        throw VerificationError(VerifyStep::LoadSnapshot, "kem.ct has wrong size");
 
     for (const auto& raw : snap.objects) {
         encoding::EncryptedFileV1 obj;

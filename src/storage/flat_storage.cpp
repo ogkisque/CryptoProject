@@ -18,8 +18,15 @@ class FlatWriter final : public ISnapshotWriter {
 public:
     explicit FlatWriter(fs::path root) : root_(std::move(root)) {}
 
+    // tmp пишется в корень vault (не в objects/): после сбоя посреди записи
+    // в objects/ не остаётся постороннего файла, который сломал бы проверку.
     void put_object(const FileId& id, ByteView data) override {
-        write_file_atomic_durable(root_ / "objects" / object_file_name(id), data);
+        std::string name = object_file_name(id);
+        fs::path tmp = root_ / (name + ".tmp");
+        fs::remove(tmp);
+        write_file_durable(tmp, data);
+        atomic_rename(tmp, root_ / "objects" / name);  // + fsync(objects/)
+        fsync_dir(root_);
     }
     void remove_object(const FileId& id) override {
         std::error_code ec;

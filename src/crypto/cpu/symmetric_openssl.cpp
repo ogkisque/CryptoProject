@@ -3,6 +3,8 @@
 #include <openssl/kdf.h>
 #include <openssl/params.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <memory>
 
 #include "vault/common/error.hpp"
@@ -30,6 +32,21 @@ int to_int(std::size_t n) {
     return static_cast<int>(n);
 }
 
+// EVP_*Update принимает int — большие файлы обрабатываются порциями.
+constexpr std::size_t kChunk = std::size_t{1} << 30;
+
+template <class UpdateFn>
+std::size_t update_chunked(UpdateFn update, std::uint8_t* out, ByteView in) {
+    std::size_t total = 0;
+    for (std::size_t off = 0; off < in.size(); off += kChunk) {
+        std::size_t n = std::min(kChunk, in.size() - off);
+        int len = 0;
+        if (update(out + total, &len, in.data() + off, static_cast<int>(n)) != 1) return SIZE_MAX;
+        total += static_cast<std::size_t>(len);
+    }
+    return total;
+}
+
 }  // namespace
 
 GcmCiphertext aes256_gcm_encrypt(ByteView key, const Nonce& nonce, ByteView aad, ByteView plaintext) {
@@ -44,16 +61,13 @@ GcmCiphertext aes256_gcm_encrypt(ByteView key, const Nonce& nonce, ByteView aad,
         crypto_fail("GCM AAD failed");
     GcmCiphertext out;
     out.ciphertext.resize(plaintext.size());
-    int total = 0;
-    if (!plaintext.empty()) {
-        if (EVP_EncryptUpdate(ctx.get(), out.ciphertext.data(), &len, plaintext.data(),
-                              to_int(plaintext.size())) != 1)
-            crypto_fail("GCM encrypt failed");
-        total = len;
-    }
+    std::size_t total = update_chunked(
+        [&](std::uint8_t* o, int* l, const std::uint8_t* i, int n) { return EVP_EncryptUpdate(ctx.get(), o, l, i, n); },
+        out.ciphertext.data(), plaintext);
+    if (total == SIZE_MAX) crypto_fail("GCM encrypt failed");
     std::uint8_t dummy[16];
     if (EVP_EncryptFinal_ex(ctx.get(), dummy, &len) != 1) crypto_fail("GCM final failed");
-    if (static_cast<std::size_t>(total) != plaintext.size()) crypto_fail("GCM length mismatch");
+    if (total != plaintext.size()) crypto_fail("GCM length mismatch");
     if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_GET_TAG, kGcmTagSize, out.tag.data()) != 1)
         crypto_fail("GCM get tag failed");
     return out;
@@ -72,11 +86,12 @@ SecureBytes aes256_gcm_decrypt(ByteView key, const Nonce& nonce, ByteView aad, B
         crypto_fail("GCM AAD failed");
     // Расшифровываем во внутренний SecureBytes; наружу он уходит только после проверки tag.
     SecureBytes plain(ciphertext.size());
-    int total = 0;
-    if (!ciphertext.empty()) {
-        if (EVP_DecryptUpdate(ctx.get(), plain.data(), &len, ciphertext.data(), to_int(ciphertext.size())) != 1)
-            crypto_fail("GCM decrypt failed");
-        total = len;
+    std::size_t total = update_chunked(
+        [&](std::uint8_t* o, int* l, const std::uint8_t* i, int n) { return EVP_DecryptUpdate(ctx.get(), o, l, i, n); },
+        plain.data(), ciphertext);
+    if (total == SIZE_MAX) {
+        plain.wipe();
+        crypto_fail("GCM decrypt failed");
     }
     GcmTag tag_copy = tag;
     if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_TAG, kGcmTagSize, tag_copy.data()) != 1)
@@ -86,7 +101,7 @@ SecureBytes aes256_gcm_decrypt(ByteView key, const Nonce& nonce, ByteView aad, B
         plain.wipe();
         throw VaultError(ErrorCode::AuthenticationFailed, "AES-GCM authentication failed");
     }
-    if (static_cast<std::size_t>(total) != ciphertext.size()) {
+    if (total != ciphertext.size()) {
         plain.wipe();
         crypto_fail("GCM length mismatch");
     }
