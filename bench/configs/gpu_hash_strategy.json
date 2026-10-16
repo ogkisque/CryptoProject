@@ -1,0 +1,14 @@
+{
+  "_comment": "Стратегия параллелизма SHA3: поток на объект против warp на объект (25 lane'ов держат состояние Keccak). Ожидание: warp выигрывает на малом числе крупных объектов, поток на объект — на большом числе мелких.",
+  "ops": ["sha3"],
+  "backends": [
+    "cpu-mt",
+    {"kind": "gpu", "label": "gpu-thread-per-object", "strategy": "thread", "pool_buffers": true},
+    {"kind": "gpu", "label": "gpu-warp-per-object", "strategy": "warp", "pool_buffers": true}
+  ],
+  "object_sizes": [1024, 65536, 1048576, 16777216],
+  "object_counts": [10, 100, 1000, 10000],
+  "max_total_bytes": 4294967296,
+  "warmup_runs": 3,
+  "measured_runs": 10
+}

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <fstream>
+#include <set>
 #include <random>
 #include <sstream>
 
@@ -67,6 +68,52 @@ TEST(BenchConfig, LoadsShippedConfigs) {
         EXPECT_EQ(c.backends.size(), 3u);
         EXPECT_GT(c.measured_runs, 0);
     }
+}
+
+TEST(BenchConfig, AllShippedConfigsLoadAndLabelsAreUnique) {
+    std::size_t n = 0;
+    for (const auto& e : fs::directory_iterator(fs::path(VAULT_SOURCE_DIR) / "bench" / "configs")) {
+        if (e.path().extension() != ".json") continue;
+        BenchConfig c = load_bench_config(e.path());
+        EXPECT_EQ(c.backend_labels.size(), c.backends.size()) << e.path();
+        std::set<std::string> uniq(c.backend_labels.begin(), c.backend_labels.end());
+        EXPECT_EQ(uniq.size(), c.backends.size()) << e.path();
+        ++n;
+    }
+    EXPECT_GE(n, 6u);  // quick, full и четыре gpu_*.json
+}
+
+TEST(BenchConfig, BackendObjectsCarryGpuOptionsAndLabels) {
+    TmpDir d;
+    BenchConfig c = load_bench_config(d.write("o.json", R"({
+      "ops": ["sha3"], "object_sizes": [1024], "object_counts": [2], "cpu_threads": 2,
+      "backends": ["cpu", {"kind": "cpu-mt", "threads": 5, "label": "mt5"},
+        {"kind": "gpu", "label": "g", "pinned_host_memory": false, "double_buffering": true, "pool_buffers": true,
+         "strategy": "warp", "max_chunk_bytes": 1048576, "merkle_cpu_threshold": 64, "cuda_device": 1}]})"));
+    ASSERT_EQ(c.backends.size(), 3u);
+    EXPECT_EQ(c.backend_labels, (std::vector<std::string>{"cpu", "mt5", "g"}));
+    EXPECT_EQ(c.backends[1].cpu_threads, 5u);  // threads объекта переопределяет глобальные
+    const auto& g = c.backends[2];
+    EXPECT_EQ(g.kind, crypto::BackendKind::Gpu);
+    EXPECT_FALSE(g.pinned_host_memory);
+    EXPECT_TRUE(g.gpu_double_buffering);
+    EXPECT_TRUE(g.gpu_pool_buffers);
+    EXPECT_EQ(g.gpu_hash_strategy, gpu::GpuHashStrategy::WarpPerObject);
+    EXPECT_EQ(g.gpu_max_chunk_bytes, 1048576u);
+    EXPECT_EQ(g.gpu_merkle_cpu_threshold, 64u);
+    EXPECT_EQ(g.cuda_device, 1);
+
+    const char* prefix = R"({"ops": ["sha3"], "object_sizes": [1], "object_counts": [1], "backends": )";
+    auto bad = [&](const std::string& backends, const char* name) {
+        EXPECT_THROW(load_bench_config(d.write(name, prefix + backends + "}")), VaultError) << backends;
+    };
+    bad(R"([{"kind": "gpu", "pinned": true}])", "b1.json");               // неизвестная опция (опечатка)
+    bad(R"([{"label": "x"}])", "b2.json");                                // нет kind
+    bad(R"([{"kind": "gpu", "strategy": "block"}])", "b3.json");          // неверная стратегия
+    bad(R"([{"kind": "gpu", "double_buffering": 1}])", "b4.json");        // не boolean
+    bad(R"(["cpu", "cpu"])", "b5.json");                                  // повторяющаяся подпись
+    bad(R"([{"kind": "gpu"}, {"kind": "gpu"}])", "b6.json");              // обе подписаны "gpu"
+    bad(R"([42])", "b7.json");
 }
 
 TEST(BenchConfig, ParsesFieldsAndRejectsBadInput) {

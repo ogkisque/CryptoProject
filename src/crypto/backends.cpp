@@ -60,10 +60,28 @@ CryptoBackends make_backends(const BackendConfig& cfg) {
             gpu::GpuOptions opt;
             opt.device = cfg.cuda_device;
             opt.pinned_host_memory = cfg.pinned_host_memory;
+            opt.double_buffering = cfg.gpu_double_buffering;
+            opt.pool_buffers = cfg.gpu_pool_buffers;
+            opt.hash_strategy = cfg.gpu_hash_strategy;
+            opt.max_chunk_bytes = cfg.gpu_max_chunk_bytes;
+            opt.merkle_cpu_threshold = cfg.gpu_merkle_cpu_threshold;
             b.hash = gpu::make_gpu_hash_backend(opt);
             b.merkle = gpu::make_gpu_merkle_backend(opt);
-            b.kem = gpu::make_gpu_kem_backend(opt);
-            b.sig = gpu::make_gpu_sig_backend(opt);
+            // ML-KEM/ML-DSA на GPU (этап 6) могут быть недоступны (нет cuPQC). Тогда vault работает с
+            // CPU-реализацией, а benchmark по name() != "gpu" помечает такие точки как skipped, а не
+            // выдаёт CPU-замер за GPU. Так сбой PQC не мешает SHA3/Merkle.
+            try {
+                b.kem = gpu::make_gpu_kem_backend(opt);
+            } catch (const VaultError& e) {
+                if (e.code() != ErrorCode::BackendUnavailable) throw;
+                b.kem = make_cpu_kem_backend(1);
+            }
+            try {
+                b.sig = gpu::make_gpu_sig_backend(opt);
+            } catch (const VaultError& e) {
+                if (e.code() != ErrorCode::BackendUnavailable) throw;
+                b.sig = make_cpu_sig_backend(1);
+            }
             break;
 #else
             throw VaultError(ErrorCode::BackendUnavailable, "gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)");

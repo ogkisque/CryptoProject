@@ -25,7 +25,7 @@
 | 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ✅ готово (2026-10-16) |
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ✅ готово (2026-10-16) |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ✅ готово (2026-10-16) |
-| 5. GPU SHA3 / Merkle — код (часть А, без компиляции CUDA) | `docs/stages/05_gpu_sha3_merkle.md` | ☐ |
+| 5. GPU SHA3 / Merkle — код (часть А, без компиляции CUDA) | `docs/stages/05_gpu_sha3_merkle.md` | ✅ часть А (2026-10-16) |
 | 6. GPU ML-KEM / ML-DSA через cuPQC — код (часть А, без компиляции CUDA) | `docs/stages/06_gpu_pqc.md` | ☐ |
 | 7. Анализ и сценарий запуска (часть А) | `docs/stages/07_experiments.md` | ☐ |
 | Сборка и запуск на GPU-машине автором (`gpu_run_all.sh --quick`, затем полный) + исправления | `docs/gpu_workflow.md` | ☐ |
@@ -92,10 +92,11 @@ include/vault/             ПУБЛИЧНЫЕ ИНТЕРФЕЙСЫ (готовы
   bench/                   stats, system_info, benchmark
   gpu/                     фабрики GPU backend'ов
 src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ и bench/ добавлены на этапах 2 и 4; common/thread_pool для CPU-MT)
-cuda/                      GPU-реализации (.cu), только при VAULT_ENABLE_CUDA
-tests/                     header_check.cpp; unit/ integration/ tamper/ (есть); crash/ (есть); gpu/ (пусто); vectors/
+cuda/                      GPU: kernels/*.cuh (общий код device/CPU, VAULT_HD), host/ (планирование, шаблоны конвейеров — всегда собираются и тестируются), src/*.cu (только при VAULT_ENABLE_CUDA)
+tools/fakecuda/            заглушки CUDA для scripts/check_cuda_syntax.sh (проверка .cu через clang без Toolkit)
+tests/                     header_check.cpp; unit/ integration/ tamper/ crash/ (есть); gpu/ (CPU==GPU, пропускаются без устройства); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
-scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, run_bench.sh
+scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, check_cuda_syntax.sh, run_bench.sh
 docs/                      format_v1.md, gpu_workflow.md (работа с GPU без локальной CUDA), gpu_machine.md, stages/01..07
 ```
 
@@ -131,3 +132,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Этап 4 завершён: `ThreadPool` и CPU-MT backend'ы (hash по байтам, Merkle по уровням, ML-KEM/ML-DSA batch), `--backend cpu|cpu-mt|gpu` и `--threads`, GPU-ветка `make_backends` (не компилировалась), плоские форматы batch (`format_v1.md` §15), профиль фаз (`-v`), benchmark framework + `vault benchmark --config --csv --json`, тест эквивалентности backend'ов. Подробности — `docs/stages/04_backend_abstraction.md`. |
 | 2026-10-16 | Ревью этапа 4: benchmark теперь сверяет результаты каждого backend'а с reference (SHA3, Merkle root, ключи, encaps, подписи) — неверный GPU-backend не даст «быстрых» данных; `merkle_verify` не зависит от размера объектов; в JSON записываются потоки, а в `git_commit` — признак `-dirty`. Полная матрица на CPU: 10.5 мин, 1.6 GiB. **План этапов 5–7 переписан под модель «один запуск на GPU»** (`docs/gpu_single_run.md`, gate в таблице статуса). 154 теста. |
 | 2026-10-16 | План работы с GPU пересмотрен по решению автора: CUDA Toolkit здесь не ставится, сборка GPU-кода здесь не проверяется; автор собирает и запускает на GPU-машине (`gpu_run_all.sh --quick`, затем полный) и присылает результат. `docs/gpu_single_run.md` → `docs/gpu_workflow.md`; убраны gate, офлайн-вендоринг и бюджет времени; этапы 5–7 обновлены. |
+| 2026-10-16 | Этап 5, часть А: GPU SHA3/Merkle — код без компиляции CUDA. Kernel-логика (`cuda/kernels/*.cuh`, `VAULT_HD`) проверена на CPU против OpenSSL/reference; конвейер порций и подъём Merkle вынесены в шаблоны над «устройством» и проверены эмулированным устройством с отложенным исполнением (мутация конвейера ловится); `.cu` проверяются на синтаксис через clang (`scripts/check_cuda_syntax.sh`). Backend'ы: «поток на объект» и «warp на объект», pinned/pageable, double buffering, пулирование; benchmark-конфиги принимают GPU-опции и подписи, добавлены `gpu_*.json`. 193 теста. Подробности и список мест `UNVERIFIED` — `docs/stages/05_gpu_sha3_merkle.md`. |

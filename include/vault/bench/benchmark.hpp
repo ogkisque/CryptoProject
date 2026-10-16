@@ -26,6 +26,9 @@ enum class BenchOp {
 struct BenchConfig {
     std::vector<BenchOp> ops;
     std::vector<crypto::BackendConfig> backends;
+    // Подписи backend'ов в записях (по умолчанию "cpu" | "cpu-mt" | "gpu"). Нужны, чтобы различать несколько
+    // конфигураций одного kind (например, gpu-pinned и gpu-pageable). Размер == backends.size() после load_bench_config.
+    std::vector<std::string> backend_labels;
     std::vector<std::size_t> object_sizes;  // SHA3/Merkle: 1KiB..16MiB
     std::vector<std::size_t> object_counts;  // SHA3/Merkle: 10..100000
     std::vector<std::size_t> batch_sizes;    // PQC: 1..10000
@@ -39,7 +42,7 @@ struct BenchConfig {
 
 struct BenchRecord {
     BenchOp op;
-    std::string backend;  // "cpu" | "cpu-mt" | "gpu"
+    std::string backend;  // подпись backend'а: "cpu" | "cpu-mt" | "gpu" или label из конфига
     std::size_t object_size = 0;
     std::size_t count = 0;  // число объектов или batch
     Summary total_ms, kernel_ms, alloc_ms, h2d_ms, d2h_ms, sync_ms;

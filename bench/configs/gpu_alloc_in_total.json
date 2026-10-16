@@ -1,0 +1,15 @@
+{
+  "_comment": "§48: GPU total включает cudaMalloc. gpu-alloc-per-call выделяет и освобождает буферы на каждый вызов (время — в alloc_ms), gpu-pooled переиспользует буферы. Разница total показывает вклад аллокации.",
+  "ops": ["sha3", "merkle_build"],
+  "backends": [
+    "cpu",
+    {"kind": "gpu", "label": "gpu-alloc-per-call", "pool_buffers": false},
+    {"kind": "gpu", "label": "gpu-pooled", "pool_buffers": true}
+  ],
+  "object_sizes": [1024, 65536, 1048576],
+  "object_counts": [10, 1000, 10000],
+  "max_total_bytes": 4294967296,
+  "include_alloc_in_total": true,
+  "warmup_runs": 3,
+  "measured_runs": 10
+}

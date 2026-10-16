@@ -19,11 +19,15 @@ foreach(category unit integration tamper crash)
   endif()
 endforeach()
 
-if(VAULT_ENABLE_CUDA)
-  file(GLOB _gpu_srcs CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gpu/*.cpp)
-  if(_gpu_srcs)
-    add_executable(test_gpu ${_gpu_srcs})
-    target_link_libraries(test_gpu PRIVATE vault_core GTest::gtest_main)
-    gtest_discover_tests(test_gpu PROPERTIES LABELS gpu)
-  endif()
+# GPU-тесты собираются всегда (чтобы код проверялся компилятором и на машине без CUDA), но без устройства
+# каждый тест делает GTEST_SKIP. Метка gpu: `ctest -L gpu`.
+file(GLOB _gpu_srcs CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gpu/*.cpp)
+if(_gpu_srcs)
+  add_executable(test_gpu ${_gpu_srcs})
+  target_link_libraries(test_gpu PRIVATE vault_core OpenSSL::Crypto nlohmann_json::nlohmann_json GTest::gtest_main)
+  target_compile_definitions(test_gpu PRIVATE
+    VAULT_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    VAULT_TEST_VECTORS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vectors"
+    VAULT_CLI_PATH="$<TARGET_FILE:vault>")
+  gtest_discover_tests(test_gpu PROPERTIES LABELS gpu)
 endif()

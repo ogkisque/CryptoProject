@@ -1,0 +1,15 @@
+{
+  "_comment": "Pinned против pageable host-памяти: тот же GPU-backend, отличается только способ копирования host<->device. Буферы пулируются, чтобы в замер не попадала аллокация.",
+  "ops": ["sha3", "merkle_build"],
+  "backends": [
+    "cpu",
+    "cpu-mt",
+    {"kind": "gpu", "label": "gpu-pinned", "pinned_host_memory": true, "pool_buffers": true},
+    {"kind": "gpu", "label": "gpu-pageable", "pinned_host_memory": false, "pool_buffers": true}
+  ],
+  "object_sizes": [1024, 65536, 1048576],
+  "object_counts": [100, 1000, 10000],
+  "max_total_bytes": 4294967296,
+  "warmup_runs": 3,
+  "measured_runs": 10
+}

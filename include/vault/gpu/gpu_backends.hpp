@@ -8,6 +8,7 @@
 #include <string>
 
 #include "vault/crypto/hash_backend.hpp"
+#include "vault/gpu/gpu_options.hpp"
 #include "vault/crypto/kem_backend.hpp"
 #include "vault/crypto/sig_backend.hpp"
 #include "vault/merkle/merkle.hpp"
@@ -23,13 +24,6 @@ struct GpuDeviceInfo {
     int runtime_version = 0, driver_version = 0;
 };
 
-struct GpuOptions {
-    int device = 0;
-    bool pinned_host_memory = true;
-    // Максимальный объём данных на одну порцию H2D; большие batch'и
-    // обрабатываются порциями (VRAM RTX 3050 — 4-8 GiB).
-    std::size_t max_chunk_bytes = std::size_t{1} << 30;
-};
 
 bool cuda_device_available() noexcept;
 GpuDeviceInfo query_device(int device);

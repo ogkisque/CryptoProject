@@ -11,6 +11,7 @@
 | Логика kernel'ов | Keccak-f[1600], sponge SHA3-256 с domain-префиксом, шаг уровня Merkle и шаг proof пишутся как функции с макросом `VAULT_HD` в `cuda/kernels/*.cuh`: под nvcc это `__host__ __device__`, под g++ — пусто. Эти же заголовки подключаются в `tests/unit/kernel_host_test.cpp` и проверяются на CPU против OpenSSL и reference Merkle. На GPU исполняется тот же исходный код |
 | Host-часть GPU-backend'ов | Упаковка `PackedBatch`, порционирование по VRAM, расчёт grid/block, разбиение batch'а PQC — обычный C++ без CUDA API (`cuda/host/`), с юнит-тестами |
 | Анализ результатов | `bench/analysis/analyze.py` тестируется на реальных CPU-данных и на синтетическом CSV с gpu-строками |
+| Синтаксис `.cu` | `scripts/check_cuda_syntax.sh`: clang с заглушками `tools/fakecuda/` (host- и device-проход) ловит опечатки и вызовы host-функций из device-кода, но это не nvcc |
 | Сценарий запуска | `scripts/gpu_run_all.sh` прогоняется здесь в CPU-режиме: GPU-шаги дают «skipped», архив собирается |
 
 **Не проверяется здесь:** файлы `.cu`, вызовы CUDA runtime и cuPQC, `cmake/Cuda.cmake`. Это первое, что может сломаться при сборке на GPU-машине. API cuPQC берётся из публичной документации NVIDIA; места, где документация неоднозначна, помечаются в коде `// UNVERIFIED(cuPQC): ...` и перечисляются в журнале этапа 6, чтобы при ошибке было сразу видно, куда смотреть.

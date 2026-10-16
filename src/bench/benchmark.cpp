@@ -86,10 +86,13 @@ BenchRecord skipped_record(BenchOp op, const std::string& backend, std::size_t s
     return r;
 }
 
+enum class Component { Hash, Merkle, Kem, Sig };
+
 struct NamedBackend {
     std::string name;
     std::optional<crypto::CryptoBackends> backends;  // nullopt -> недоступен
     std::string unavailable_reason;
+    bool is_gpu = false;
 };
 
 Bytes random_bytes(std::mt19937_64& g, std::size_t n) {
@@ -130,9 +133,11 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg) { return run_ben
 
 std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<BenchBackend> extra) {
     std::vector<NamedBackend> backs;
-    for (const auto& bc : cfg.backends) {
+    for (std::size_t bi = 0; bi < cfg.backends.size(); ++bi) {
+        const auto& bc = cfg.backends[bi];
         NamedBackend nb;
-        nb.name = std::string(crypto::to_string(bc.kind));
+        nb.name = bi < cfg.backend_labels.size() ? cfg.backend_labels[bi] : std::string(crypto::to_string(bc.kind));
+        nb.is_gpu = bc.kind == crypto::BackendKind::Gpu;
         try {
             nb.backends = crypto::make_backends(bc);
         } catch (const VaultError& e) {
@@ -145,11 +150,26 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
     std::mt19937_64 rng(0x5EEDB10C);
     std::vector<BenchRecord> out;
 
-    auto for_each_backend = [&](BenchOp op, std::size_t size, std::size_t count, auto&& run) {
+    auto for_each_backend = [&](BenchOp op, Component comp, std::size_t size, std::size_t count, auto&& run) {
         for (auto& nb : backs) {
             if (!nb.backends) {
                 out.push_back(skipped_record(op, nb.name, size, count, "backend unavailable: " + nb.unavailable_reason));
                 continue;
+            }
+            // GPU-набор может содержать CPU-реализацию компонента (например, нет cuPQC): такой замер
+            // был бы CPU-замером под именем GPU, поэтому пропускается.
+            if (nb.is_gpu) {
+                std::string_view cn;
+                switch (comp) {
+                    case Component::Hash: cn = nb.backends->hash->name(); break;
+                    case Component::Merkle: cn = nb.backends->merkle->name(); break;
+                    case Component::Kem: cn = nb.backends->kem->name(); break;
+                    case Component::Sig: cn = nb.backends->sig->name(); break;
+                }
+                if (cn != "gpu") {
+                    out.push_back(skipped_record(op, nb.name, size, count, "no gpu implementation of this component (cpu fallback)"));
+                    continue;
+                }
             }
             out.push_back(run(nb));
         }
@@ -170,7 +190,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                 std::vector<merkle::MerkleProof> proofs;
                 proofs.reserve(count);
                 for (std::size_t i = 0; i < count; ++i) proofs.push_back(merkle::make_proof(tree, i));
-                for_each_backend(op, 0, count, [&](NamedBackend& nb) {
+                for_each_backend(op, Component::Merkle, 0, count, [&](NamedBackend& nb) {
                     std::vector<std::uint8_t> ok(count);
                     Samples s = measure(cfg, [&](TimingBreakdown& tb) {
                         nb.backends->merkle->verify_proofs_batch(leaves, proofs, tree.root, ok, &tb);
@@ -200,7 +220,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                     ref.merkle->compute_leaves(views, ref_leaves, nullptr);
 
                     if (op == BenchOp::Sha3) {
-                        for_each_backend(op, size, count, [&](NamedBackend& nb) {
+                        for_each_backend(op, Component::Hash, size, count, [&](NamedBackend& nb) {
                             std::vector<Hash256> out_h(count);
                             Samples s = measure(cfg, [&](TimingBreakdown& tb) {
                                 nb.backends->hash->domain_hash_batch(domain::kMerkleLeaf, views, out_h, &tb);
@@ -210,7 +230,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                         });
                     } else {
                         const Hash256 ref_root = ref.merkle->root_from_leaves(ref_leaves, nullptr);
-                        for_each_backend(op, size, count, [&](NamedBackend& nb) {
+                        for_each_backend(op, Component::Merkle, size, count, [&](NamedBackend& nb) {
                             std::vector<Hash256> leaves(count);
                             Hash256 root{};
                             Samples s = measure(cfg, [&](TimingBreakdown& tb) {
@@ -234,7 +254,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                     ref.kem->keygen_batch(batch, std::nullopt, prep, nullptr);
                     if (op == BenchOp::MlKemDecaps) ref.kem->encaps_batch(prep, std::nullopt, nullptr);
                 }
-                for_each_backend(op, 0, batch, [&](NamedBackend& nb) {
+                for_each_backend(op, Component::Kem, 0, batch, [&](NamedBackend& nb) {
                     crypto::KemBatch kb;
                     Samples s;
                     if (op == BenchOp::MlKemKeygen) {
@@ -268,7 +288,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                     prep.messages = random_bytes(rng, batch * kDsaMessageSize);
                     if (op == BenchOp::MlDsaVerify) ref.sig->sign_batch(prep, label::kManifestSigContext, std::nullopt, nullptr);
                 }
-                for_each_backend(op, op == BenchOp::MlDsaKeygen ? 0 : kDsaMessageSize, batch, [&](NamedBackend& nb) {
+                for_each_backend(op, Component::Sig, op == BenchOp::MlDsaKeygen ? 0 : kDsaMessageSize, batch, [&](NamedBackend& nb) {
                     crypto::SigBatch sb;
                     Samples s;
                     if (op == BenchOp::MlDsaKeygen) {
@@ -356,8 +376,20 @@ void write_json(const std::filesystem::path& path, const SystemInfo& info, const
                    {"build_type", info.build_type}, {"git_commit", info.git_commit}};
     json ops = json::array(), backends = json::array();
     for (BenchOp op : cfg.ops) ops.push_back(std::string(to_string(op)));
-    for (const auto& b : cfg.backends) backends.push_back(std::string(crypto::to_string(b.kind)));
-    j["config"] = {{"ops", ops}, {"backends", backends}, {"object_sizes", cfg.object_sizes},
+    json backend_options = json::array();
+    for (std::size_t i = 0; i < cfg.backends.size(); ++i) {
+        const auto& b = cfg.backends[i];
+        backends.push_back(i < cfg.backend_labels.size() ? cfg.backend_labels[i] : std::string(crypto::to_string(b.kind)));
+        json o = {{"kind", std::string(crypto::to_string(b.kind))}};
+        if (b.kind == crypto::BackendKind::CpuParallel) o["threads"] = resolve_thread_count(b.cpu_threads);
+        if (b.kind == crypto::BackendKind::Gpu)
+            o.update({{"cuda_device", b.cuda_device}, {"pinned_host_memory", b.pinned_host_memory},
+                      {"double_buffering", b.gpu_double_buffering}, {"pool_buffers", b.gpu_pool_buffers},
+                      {"strategy", b.gpu_hash_strategy == gpu::GpuHashStrategy::WarpPerObject ? "warp" : "thread"},
+                      {"max_chunk_bytes", b.gpu_max_chunk_bytes}, {"merkle_cpu_threshold", b.gpu_merkle_cpu_threshold}});
+        backend_options.push_back(std::move(o));
+    }
+    j["config"] = {{"ops", ops}, {"backends", backends}, {"backend_options", backend_options}, {"object_sizes", cfg.object_sizes},
                    {"object_counts", cfg.object_counts}, {"batch_sizes", cfg.batch_sizes},
                    {"cpu_threads", cfg.backends.empty() ? 0u : resolve_thread_count(cfg.backends.front().cpu_threads)},
                    {"max_total_bytes", cfg.max_total_bytes}, {"warmup_runs", cfg.warmup_runs},

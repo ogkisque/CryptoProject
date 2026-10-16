@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "vault/crypto/hash_backend.hpp"
+#include "vault/gpu/gpu_options.hpp"
 #include "vault/crypto/kem_backend.hpp"
 #include "vault/crypto/random.hpp"
 #include "vault/crypto/sig_backend.hpp"
@@ -27,8 +28,14 @@ enum class BackendKind {
 struct BackendConfig {
     BackendKind kind = BackendKind::Cpu;
     unsigned cpu_threads = 0;  // 0 -> std::thread::hardware_concurrency()
+    // GPU (для остальных kind игнорируются): подробности — vault/gpu/gpu_options.hpp.
     int cuda_device = 0;
     bool pinned_host_memory = true;
+    bool gpu_double_buffering = false;
+    bool gpu_pool_buffers = false;
+    gpu::GpuHashStrategy gpu_hash_strategy = gpu::GpuHashStrategy::ThreadPerObject;
+    std::size_t gpu_max_chunk_bytes = 0;
+    std::size_t gpu_merkle_cpu_threshold = 1024;
 };
 
 struct CryptoBackends {

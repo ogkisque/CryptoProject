@@ -1,0 +1,14 @@
+{
+  "_comment": "Double buffering: порция 32 MiB, поэтому batch'и ниже режутся на много порций, и перекрытие сборки/копирования с вычислением видно. При double buffering сумма фаз может превышать total.",
+  "ops": ["sha3"],
+  "backends": [
+    "cpu-mt",
+    {"kind": "gpu", "label": "gpu-single-buffer", "double_buffering": false, "max_chunk_bytes": 33554432, "pool_buffers": true},
+    {"kind": "gpu", "label": "gpu-double-buffer", "double_buffering": true, "max_chunk_bytes": 33554432, "pool_buffers": true}
+  ],
+  "object_sizes": [65536, 1048576],
+  "object_counts": [1000, 4000],
+  "max_total_bytes": 4294967296,
+  "warmup_runs": 3,
+  "measured_runs": 10
+}

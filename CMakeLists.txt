@@ -12,6 +12,10 @@ option(VAULT_SANITIZE      "ASan + UBSan (только CPU-сборка)"       
 set(VAULT_CUDA_ARCH "86" CACHE STRING "CUDA architectures (RTX 3050 = 86)")
 set(CUPQC_ROOT "" CACHE PATH "Путь к распакованному cuPQC SDK")
 
+if(VAULT_ENABLE_CUDA)
+  enable_language(CUDA)  # только на GPU-машине (docs/gpu_workflow.md)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -41,6 +45,9 @@ target_link_libraries(vault_header_check PRIVATE vault_headers vault_warnings)
 file(GLOB_RECURSE VAULT_CORE_SOURCES CONFIGURE_DEPENDS
      ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 list(FILTER VAULT_CORE_SOURCES EXCLUDE REGEX ".*/src/cli/.*")
+# Host-часть GPU (порционирование, упаковка) — обычный C++, собирается и тестируется всегда.
+file(GLOB VAULT_GPU_HOST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/cuda/host/*.cpp)
+list(APPEND VAULT_CORE_SOURCES ${VAULT_GPU_HOST_SOURCES})
 
 if(VAULT_CORE_SOURCES)
   include(Dependencies)  # OpenSSL >= 3.0, liboqs, CLI11, GTest
@@ -55,16 +62,21 @@ if(VAULT_CORE_SOURCES)
   string(TOUPPER "${CMAKE_BUILD_TYPE}" VAULT_BUILD_TYPE_UC)
   add_library(vault_core STATIC ${VAULT_CORE_SOURCES})
   target_link_libraries(vault_core
-    PUBLIC  vault_headers
+    PUBLIC  vault_headers 
     PRIVATE vault_warnings OpenSSL::Crypto OQS::oqs nlohmann_json::nlohmann_json Threads::Threads)
+  # kernels/*.cuh (общий код device/CPU) и host/launch_plan.hpp видны и тестам.
+  target_include_directories(vault_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/cuda)
   target_compile_definitions(vault_core PRIVATE
     VAULT_COMPILE_FLAGS="${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${VAULT_BUILD_TYPE_UC}}"
     VAULT_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
     VAULT_GIT_COMMIT="${VAULT_GIT_COMMIT}")
 
   if(VAULT_ENABLE_CUDA)
-    include(Cuda)  # enable_language(CUDA), cuPQC, цель vault_gpu
-    target_link_libraries(vault_core PUBLIC vault_gpu)
+    # CUDA-исходники добавляются прямо в vault_core (а не отдельной библиотекой): GPU-код использует
+    # VaultError и cuda/host/*.cpp из vault_core, а vault_core вызывает фабрики GPU — отдельная
+    # статическая библиотека дала бы циклическую зависимость при линковке.
+    include(Cuda)
+    vault_attach_cuda(vault_core)
     target_compile_definitions(vault_core PUBLIC VAULT_HAS_CUDA=1)
   endif()
 

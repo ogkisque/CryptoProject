@@ -1,4 +1,7 @@
+#include <algorithm>
 #include <fstream>
+#include <iterator>
+#include <type_traits>
 
 #include <nlohmann/json.hpp>
 
@@ -73,11 +76,55 @@ BenchConfig load_bench_config(const std::filesystem::path& json_path) {
     nlohmann::json backends = j.contains("backends") ? j["backends"] : nlohmann::json::array({"cpu"});
     if (!backends.is_array() || backends.empty()) bad("'backends' must be a non-empty array");
     for (const auto& b : backends) {
-        if (!b.is_string()) bad("backend names must be strings");
         crypto::BackendConfig bc;
-        bc.kind = crypto::parse_backend_kind(b.get<std::string>());  // бросает InvalidArgument
         bc.cpu_threads = threads;
+        std::string label;
+        if (b.is_string()) {
+            bc.kind = crypto::parse_backend_kind(b.get<std::string>());  // бросает InvalidArgument
+            label = b.get<std::string>();
+        } else if (b.is_object()) {
+            // {"kind": "gpu", "label": "gpu-pageable", "pinned_host_memory": false, ...}
+            static const char* kKeys[] = {"kind", "label", "threads", "cuda_device", "pinned_host_memory", "double_buffering",
+                                          "pool_buffers", "strategy", "max_chunk_bytes", "merkle_cpu_threshold"};
+            for (auto it = b.begin(); it != b.end(); ++it)
+                if (std::find_if(std::begin(kKeys), std::end(kKeys), [&](const char* k) { return it.key() == k; }) == std::end(kKeys))
+                    bad("unknown backend option '" + it.key() + "'");
+            if (!b.contains("kind") || !b["kind"].is_string()) bad("backend object needs a string 'kind'");
+            bc.kind = crypto::parse_backend_kind(b["kind"].get<std::string>());
+            label = b.value("label", b["kind"].get<std::string>());
+            auto uns = [&](const char* key, auto& dst) {
+                if (!b.contains(key)) return;
+                if (!b[key].is_number_unsigned()) bad(std::string("backend option '") + key + "' must be a non-negative integer");
+                dst = b[key].get<std::decay_t<decltype(dst)>>();
+            };
+            auto flag = [&](const char* key, bool& dst) {
+                if (!b.contains(key)) return;
+                if (!b[key].is_boolean()) bad(std::string("backend option '") + key + "' must be a boolean");
+                dst = b[key].get<bool>();
+            };
+            uns("threads", bc.cpu_threads);
+            if (b.contains("cuda_device")) {
+                if (!b["cuda_device"].is_number_integer()) bad("backend option 'cuda_device' must be an integer");
+                bc.cuda_device = b["cuda_device"].get<int>();
+            }
+            flag("pinned_host_memory", bc.pinned_host_memory);
+            flag("double_buffering", bc.gpu_double_buffering);
+            flag("pool_buffers", bc.gpu_pool_buffers);
+            uns("max_chunk_bytes", bc.gpu_max_chunk_bytes);
+            uns("merkle_cpu_threshold", bc.gpu_merkle_cpu_threshold);
+            if (b.contains("strategy")) {
+                const std::string st = b["strategy"].is_string() ? b["strategy"].get<std::string>() : "";
+                if (st == "thread") bc.gpu_hash_strategy = gpu::GpuHashStrategy::ThreadPerObject;
+                else if (st == "warp") bc.gpu_hash_strategy = gpu::GpuHashStrategy::WarpPerObject;
+                else bad("backend option 'strategy' must be \"thread\" or \"warp\"");
+            }
+        } else {
+            bad("backend must be a name or an object");
+        }
+        if (std::find(cfg.backend_labels.begin(), cfg.backend_labels.end(), label) != cfg.backend_labels.end())
+            bad("duplicate backend label '" + label + "' (set a distinct \"label\")");
         cfg.backends.push_back(bc);
+        cfg.backend_labels.push_back(label);
     }
 
     cfg.object_sizes = size_list(j, "object_sizes");
