@@ -78,6 +78,15 @@ CommitResult CommitProtocol::commit(VerifiedState& current, const ChangeSet& cha
     for (const auto& o : changes.added)
         if (has(o.file_id)) throw VaultError(ErrorCode::AlreadyExists, "file_id already exists");
 
+    // current обязан быть именно тем состоянием, на которое сейчас указывает trusted anchor.
+    // Иначе (другой процесс сделал commit после нашей проверки) удаление «поколений > N» ниже
+    // снесло бы актуальное доверенное поколение и чужое изменение.
+    encoding::TrustedStateV1 ts = trusted_.load_state();
+    if (ts.trusted_generation != n ||
+        !constant_time_equal(as_view(ts.trusted_manifest_hash), as_view(current.manifest_hash)))
+        throw VaultError(ErrorCode::StateVerification,
+                         "commit: verified state is stale (trusted state changed since verification)");
+
     // 1. До начала записи
     crash_here(CrashPoint::BeforeSnapshotWrite);
 
@@ -150,7 +159,6 @@ CommitResult CommitProtocol::commit(VerifiedState& current, const ChangeSet& cha
         crash_here(CrashPoint::AfterPublishBeforeTrusted);
 
         // 6. Доверенный anchor: именно здесь поколение N+1 становится «текущим»
-        encoding::TrustedStateV1 ts = trusted_.load_state();
         ts.trusted_generation = n + 1;
         ts.trusted_manifest_hash = res.new_manifest_hash;
         trusted_.update_state(ts);

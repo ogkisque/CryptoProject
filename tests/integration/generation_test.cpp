@@ -5,7 +5,11 @@
 
 #include <map>
 
+#include "vault/common/error.hpp"
 #include "vault/storage/storage_backend.hpp"
+#include "vault/storage/trusted_storage.hpp"
+#include "vault/vault/commit.hpp"
+#include "vault/vault/state_verifier.hpp"
 #include "test_util.hpp"
 
 using namespace vault;
@@ -144,4 +148,43 @@ TEST_F(GenerationTest, WritesLeaveNoTmpArtifacts) {
     v.add_bytes("a", Bytes(5, 1));
     EXPECT_TRUE(storage::make_generation_storage(vault_dir)->list_incomplete_snapshots().empty());
     EXPECT_FALSE(fs::exists(trusted_dir / "trusted_state.bin.tmp"));
+}
+
+// Ревью этапа 3: commit со «старым» проверенным состоянием (другой процесс успел
+// сделать commit после проверки) не должен трогать актуальное доверенное поколение.
+// Раньше commit удалял «осиротевшие» поколения > N, включая текущее trusted N+1,
+// и терял чужое изменение.
+TEST_F(GenerationTest, CommitWithStaleVerifiedStateIsRefused) {
+    auto b = backends();
+    auto st = storage::make_generation_storage(vault_dir);
+    auto tr = storage::make_file_trusted_storage(trusted_dir);
+    core::VerifiedState stale = core::StateVerifier(b, *st, *tr).verify_current().state;  // поколение 0
+
+    FileId other;
+    {
+        Vault v = Vault::open(paths(), backends());
+        other = v.add_bytes("other.txt", Bytes(5, 1));  // поколение 1 от «другого процесса»
+    }
+    ASSERT_EQ(trusted_generation(trusted_dir), 1u);
+
+    core::ChangeSet cs;
+    cs.removed = {};
+    EXPECT_THROW(core::CommitProtocol(b, *st, *tr).commit(stale, cs), VaultError);
+    EXPECT_EQ(stale.generation, 0u);  // при ошибке current не меняется
+
+    // Чужое изменение на месте, хранилище валидно.
+    EXPECT_EQ(trusted_generation(trusted_dir), 1u);
+    Vault v = Vault::open(paths(), backends());
+    ASSERT_EQ(v.list(false).size(), 1u);
+    EXPECT_EQ(v.list(false)[0].file_id, other);
+}
+
+// Отчёт верификатора несёт ровно тот TrustedState, по которому шла проверка.
+TEST_F(GenerationTest, VerifyReportCarriesTrustedStateItChecked) {
+    auto b = backends();
+    auto st = storage::make_generation_storage(vault_dir);
+    auto tr = storage::make_file_trusted_storage(trusted_dir);
+    core::VerifyReport r = core::StateVerifier(b, *st, *tr).verify_current();
+    EXPECT_EQ(r.trusted_state.trusted_generation, r.state.generation);
+    EXPECT_EQ(r.trusted_state.trusted_manifest_hash, r.state.manifest_hash);
 }

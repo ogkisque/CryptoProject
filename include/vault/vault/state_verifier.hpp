@@ -39,6 +39,10 @@ struct VerifyReport {
     TimingBreakdown merkle_timing;  // от merkle backend
     // Не ошибки: например, осиротевшие поколения новее trusted (след crash между publish и trusted update).
     std::vector<std::string> warnings;
+    // TrustedState, относительно которого шла проверка. Использовать именно его, а не
+    // перечитывать файл: иначе между проверкой и чтением другой процесс может сделать commit,
+    // и в памяти окажутся проверенное поколение N рядом с trusted N+1.
+    encoding::TrustedStateV1 trusted_state;
 };
 
 class StateVerifier {

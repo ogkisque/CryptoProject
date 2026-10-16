@@ -76,6 +76,7 @@ VerifyReport StateVerifier::verify_current() const {
     } catch (const VaultError&) {
     }
     st.generation = ts.trusted_generation;
+    report.trusted_state = ts;
     if (st.kem_ct.size() != kMlKem768CiphertextSize)
         throw VerificationError(VerifyStep::LoadSnapshot, "kem.ct has wrong size");
     if (!snap.manifest) throw VerificationError(VerifyStep::LoadManifest, "manifest.bin is missing");

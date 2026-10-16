@@ -46,9 +46,9 @@ struct Vault::Impl {
         storage::FileLock lock(paths.vault_dir / ".lock");
         encoding::TrustedStateV1 ts = trusted->load_state();
         if (!(ts == trusted_state)) {
-            core::StateVerifier verifier(backends, *storage, *trusted);
-            verified = std::move(verifier.verify_current().state);
-            trusted_state = trusted->load_state();
+            core::VerifyReport r = core::StateVerifier(backends, *storage, *trusted).verify_current();
+            verified = std::move(r.state);
+            trusted_state = r.trusted_state;
         }
         fn();
         trusted_state = trusted->load_state();
@@ -93,21 +93,32 @@ void Vault::init(const VaultPaths& paths, const crypto::CryptoBackends& backends
     // Порядок init: vault/ (kem.ct, поколение 0) -> доверенная область ПОСЛЕДНЕЙ. Наличие trusted
     // state означает «init завершён». Если процесс убит посередине, остаётся vault/ без trusted/:
     // повторный init сообщит о неполной инициализации, каталог нужно удалить вручную.
-    // При обычной ошибке (исключении) созданное откатывается.
+    // При обычной ошибке (исключении) откатывается только то, что создал этот вызов:
+    // если каталог успел создать кто-то другой (AlreadyExists), его трогать нельзя.
+    bool vault_created = false, trusted_created = false;
     try {
         storage->create_layout();
+        vault_created = true;
         storage->write_kem_ct(km.ct_kem);
         core::CommitProtocol commit(backends, *storage, *trusted);
         core::CommitResult gen0 = commit.commit_initial(ts.storage_uuid, km.ct_kem, kem.public_key, sig);
         ts.trusted_generation = 0;
         ts.trusted_manifest_hash = gen0.new_manifest_hash;
-        trusted->initialize(storage::TrustedKeys{kem.public_key, std::move(kem.secret_key), sig.public_key,
-                                                 std::move(sig.secret_key)},
-                            ts);
+        try {
+            trusted->initialize(storage::TrustedKeys{kem.public_key, std::move(kem.secret_key), sig.public_key,
+                                                     std::move(sig.secret_key)},
+                                ts);
+        } catch (const VaultError& e) {
+            trusted_created = e.code() != ErrorCode::AlreadyExists;  // initialize успел что-то создать
+            throw;
+        } catch (...) {
+            trusted_created = true;
+            throw;
+        }
     } catch (...) {
         std::error_code ec;
-        std::filesystem::remove_all(paths.vault_dir, ec);
-        std::filesystem::remove_all(paths.trusted_dir, ec);
+        if (vault_created) std::filesystem::remove_all(paths.vault_dir, ec);
+        if (trusted_created) std::filesystem::remove_all(paths.trusted_dir, ec);
         throw;
     }
 }
@@ -125,9 +136,9 @@ Vault Vault::open(const VaultPaths& paths, crypto::CryptoBackends backends) {
     if (!impl->storage->exists())
         throw VaultError(ErrorCode::NotFound, "vault directory not found: " + paths.vault_dir.string());
 
-    core::StateVerifier verifier(impl->backends, *impl->storage, *impl->trusted);
-    impl->verified = std::move(verifier.verify_current().state);
-    impl->trusted_state = impl->trusted->load_state();
+    core::VerifyReport report = core::StateVerifier(impl->backends, *impl->storage, *impl->trusted).verify_current();
+    impl->verified = std::move(report.state);
+    impl->trusted_state = report.trusted_state;  // не перечитывать: см. VerifyReport::trusted_state
 
     // Только после успешной проверки состояния:
     SecureBytes sk = impl->trusted->load_kem_secret_key();
@@ -197,7 +208,7 @@ core::VerifyReport Vault::verify() {
     core::StateVerifier verifier(impl_->backends, *impl_->storage, *impl_->trusted);
     core::VerifyReport report = verifier.verify_current();
     impl_->verified = report.state;
-    impl_->trusted_state = impl_->trusted->load_state();
+    impl_->trusted_state = report.trusted_state;
     return report;
 }
 

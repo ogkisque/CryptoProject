@@ -91,7 +91,7 @@ include/vault/             ПУБЛИЧНЫЕ ИНТЕРФЕЙСЫ (готовы
   gpu/                     фабрики GPU backend'ов
 src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ добавлен на этапе 2; bench/ пока пуст)
 cuda/                      GPU-реализации (.cu), только при VAULT_ENABLE_CUDA
-tests/                     header_check.cpp; unit/ integration/ tamper/ (есть, 101 тест); crash/ gpu/ (пусто); vectors/
+tests/                     header_check.cpp; unit/ integration/ tamper/ (есть); crash/ (есть); gpu/ (пусто); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
 scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, run_bench.sh
 docs/                      format_v1.md, gpu_machine.md, stages/01..07
@@ -125,3 +125,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Этап 2 завершён: Merkle (reference, proofs), ML-DSA-65 (liboqs; derand через внутренние точки mldsa-native), подписанный Manifest, `StateVerifier` шаги 1–6 и 9–12, `vault verify` (VALID/INVALID, `-v`), тесты атак §57 с проверкой `VerifyStep`, ACVP-векторы. Подробности — `docs/stages/02_integrity_state.md`. |
 | 2026-10-16 | Ревью этапа 2: криптографических дефектов нет. Добавлены NIST ACVP для ML-KEM-768 (долг этапа 1) и независимые Python-векторы всего формата v1; выбор storage-backend сведён в одну точку. 101 тест. Подробности — `docs/stages/02_integrity_state.md`, раздел «Ревью». |
 | 2026-10-16 | Этап 3 завершён: `GenerationStorage` (immutable поколения + hardlink), `CommitProtocol` с 6 crash-точками, шаги 7–8 verifier'а (rollback → `Generation`, fork → `ManifestHash`), `flock` на транзакцию, `vault gc`, предупреждения об orphan'ах. Тесты: rollback/fork, crash (CLI + `VAULT_CRASH_POINT`), параллельные `add`. Подробности — `docs/stages/03_rollback_crash_safety.md`. |
+| 2026-10-16 | Ревью этапа 3: исправлена гонка «проверка N / trusted N+1», из-за которой параллельный commit мог удалить актуальное доверенное поколение (`VerifyReport::trusted_state` + проверка актуальности в `commit`); `init` больше не удаляет чужие каталоги при `AlreadyExists`. 128 тестов. Подробности — `docs/stages/03_rollback_crash_safety.md`, раздел «Ревью». |
