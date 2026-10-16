@@ -15,11 +15,12 @@ struct TimingBreakdown {
     double kernel_ms = 0;  // чистое время вычислений
     double d2h_ms = 0;     // device -> host
     double sync_ms = 0;    // cudaStreamSynchronize и пр.
+    double entropy_ms = 0;  // генерация случайности внутри backend'а (cuPQC get_entropy); входит в total
     double total_ms = 0;   // wall-clock от входа до выхода из функции
 
     TimingBreakdown& operator+=(const TimingBreakdown& o) {
         alloc_ms += o.alloc_ms; h2d_ms += o.h2d_ms; kernel_ms += o.kernel_ms;
-        d2h_ms += o.d2h_ms; sync_ms += o.sync_ms; total_ms += o.total_ms;
+        d2h_ms += o.d2h_ms; sync_ms += o.sync_ms; entropy_ms += o.entropy_ms; total_ms += o.total_ms;
         return *this;
     }
 };

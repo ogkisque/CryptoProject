@@ -7,3 +7,4 @@
 #define __constant__ __attribute__((constant))
 #define __shared__ __attribute__((shared))
 template <typename T> __attribute__((device)) T __shfl_sync(unsigned, T, int, int = 32);
+#define __align__(n) __attribute__((aligned(n)))

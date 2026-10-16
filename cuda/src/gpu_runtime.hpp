@@ -66,6 +66,11 @@ public:
     template <typename T = std::uint8_t>
     T* get() const noexcept { return static_cast<T*>(ptr_); }
     std::size_t capacity() const noexcept { return cap_; }
+    // Обнуление содержимого на устройстве (секреты, §43). Асинхронно в stream; вызывающий синхронизирует
+    // stream до освобождения/повторного использования.
+    void zero_async(cudaStream_t stream) noexcept {
+        if (ptr_) cudaMemsetAsync(ptr_, 0, cap_, stream);
+    }
 
 private:
     void* ptr_ = nullptr;
@@ -126,6 +131,7 @@ public:
     Event(const Event&) = delete;
     Event& operator=(const Event&) = delete;
     void record(const Stream& s) const { CUDA_CHECK(cudaEventRecord(e_, s.get())); }
+    void record(cudaStream_t s) const { CUDA_CHECK(cudaEventRecord(e_, s)); }
     cudaEvent_t get() const noexcept { return e_; }
 
 private:

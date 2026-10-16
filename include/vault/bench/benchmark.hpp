@@ -35,6 +35,9 @@ struct BenchConfig {
     std::size_t max_total_bytes = std::size_t{4} << 30;  // пропуск комбинаций > лимита
     int warmup_runs = 3;
     int measured_runs = 10;
+    // ML-DSA: false — context string manifest (как в vault); true — пустой ctx для всех backend'ов. Нужен, если GPU-
+    // реализация не поддерживает context string: тогда её batch-строки при false будут skipped (см. docs этапа 6).
+    bool mldsa_empty_context = false;
     bool include_alloc_in_total = true;  // GPU_total учитывает cudaMalloc (§48)
     std::filesystem::path output_csv;
     std::filesystem::path output_json;   // SystemInfo + конфиг + записи
@@ -45,7 +48,7 @@ struct BenchRecord {
     std::string backend;  // подпись backend'а: "cpu" | "cpu-mt" | "gpu" или label из конфига
     std::size_t object_size = 0;
     std::size_t count = 0;  // число объектов или batch
-    Summary total_ms, kernel_ms, alloc_ms, h2d_ms, d2h_ms, sync_ms;
+    Summary total_ms, kernel_ms, alloc_ms, h2d_ms, d2h_ms, sync_ms, entropy_ms;
     double throughput_gbps = 0;  // по median total
     double ops_per_sec = 0;
     double latency_ms = 0;       // median total / count (для batch=1 — single-op latency)

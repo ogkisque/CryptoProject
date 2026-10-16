@@ -151,6 +151,11 @@ BenchConfig load_bench_config(const std::filesystem::path& json_path) {
     };
     runs("warmup_runs", cfg.warmup_runs, 0);
     runs("measured_runs", cfg.measured_runs, 1);
+    if (j.contains("mldsa_context")) {
+        const std::string c = j["mldsa_context"].is_string() ? j["mldsa_context"].get<std::string>() : "";
+        if (c != "manifest" && c != "empty") bad("'mldsa_context' must be \"manifest\" or \"empty\"");
+        cfg.mldsa_empty_context = c == "empty";
+    }
     if (j.contains("include_alloc_in_total")) {
         if (!j["include_alloc_in_total"].is_boolean()) bad("'include_alloc_in_total' must be a boolean");
         cfg.include_alloc_in_total = j["include_alloc_in_total"].get<bool>();

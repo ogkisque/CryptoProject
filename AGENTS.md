@@ -26,7 +26,7 @@
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ✅ готово (2026-10-16) |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ✅ готово (2026-10-16) |
 | 5. GPU SHA3 / Merkle — код (часть А, без компиляции CUDA) | `docs/stages/05_gpu_sha3_merkle.md` | ✅ часть А (2026-10-16) |
-| 6. GPU ML-KEM / ML-DSA через cuPQC — код (часть А, без компиляции CUDA) | `docs/stages/06_gpu_pqc.md` | ☐ |
+| 6. GPU ML-KEM / ML-DSA через cuPQC — код (часть А, без компиляции CUDA) | `docs/stages/06_gpu_pqc.md` | ✅ часть А (2026-10-16) |
 | 7. Анализ и сценарий запуска (часть А) | `docs/stages/07_experiments.md` | ☐ |
 | Сборка и запуск на GPU-машине автором (`gpu_run_all.sh --quick`, затем полный) + исправления | `docs/gpu_workflow.md` | ☐ |
 | Анализ результатов и выводы (этап 7, часть В) | `docs/stages/07_experiments.md` | ☐ |
@@ -39,7 +39,7 @@
 - **OpenSSL ≥ 3.0**: AES-GCM, AES-KW, HKDF(SHA3-256), SHA3, RAND. Локально нужно поставить `libssl-dev`.
 - **liboqs 0.16.0** (FetchContent, tag в `cmake/Dependencies.cmake`): ML-KEM-768 и ML-DSA-65 на CPU.
 - **CLI11** — CLI; **GoogleTest** — тесты; **nlohmann/json** — конфиги и результаты benchmark'а.
-- **CUDA 12 + cuPQC SDK** — только на GPU-машине (`VAULT_ENABLE_CUDA=ON`).
+- **CUDA 12 + cuPQC SDK** — только на GPU-машине (`VAULT_ENABLE_CUDA=ON`). SHA3/Merkle на GPU: CUDA ≥ 12.0; cuPQC-PK (ML-KEM/ML-DSA): CUDA и nvcc ≥ 12.8, SM 80/86/87/89/90.
 - Python (pandas, matplotlib) — анализ результатов.
 
 **Машины и модель работы** (`docs/gpu_workflow.md`). На машине разработки нет GPU и **не ставится CUDA Toolkit**: `.cu`-код и вызовы cuPQC пишутся без компиляции, сборку не проверяем. Здесь проверяется только то, что собирает g++: kernel-логика как `VAULT_HD` (`__host__ __device__`) функции с тестами на CPU, host-часть GPU-backend'ов, `analyze.py` (в том числе на синтетических GPU-данных) и `scripts/gpu_run_all.sh` в CPU-режиме. Автор собирает и запускает на GPU-машине (сначала `--quick`, потом полный) и присылает ошибки или архив; по ним вносятся исправления. Цель — минимум таких итераций: ошибки через `CUDA_CHECK` с выражением и местом, неочевидные места API cuPQC помечены `// UNVERIFIED(cuPQC)`.
@@ -134,3 +134,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | План работы с GPU пересмотрен по решению автора: CUDA Toolkit здесь не ставится, сборка GPU-кода здесь не проверяется; автор собирает и запускает на GPU-машине (`gpu_run_all.sh --quick`, затем полный) и присылает результат. `docs/gpu_single_run.md` → `docs/gpu_workflow.md`; убраны gate, офлайн-вендоринг и бюджет времени; этапы 5–7 обновлены. |
 | 2026-10-16 | Этап 5, часть А: GPU SHA3/Merkle — код без компиляции CUDA. Kernel-логика (`cuda/kernels/*.cuh`, `VAULT_HD`) проверена на CPU против OpenSSL/reference; конвейер порций и подъём Merkle вынесены в шаблоны над «устройством» и проверены эмулированным устройством с отложенным исполнением (мутация конвейера ловится); `.cu` проверяются на синтаксис через clang (`scripts/check_cuda_syntax.sh`). Backend'ы: «поток на объект» и «warp на объект», pinned/pageable, double buffering, пулирование; benchmark-конфиги принимают GPU-опции и подписи, добавлены `gpu_*.json`. 193 теста. Подробности и список мест `UNVERIFIED` — `docs/stages/05_gpu_sha3_merkle.md`. |
 | 2026-10-16 | Ревью этапа 5: kernel «поток на объект» и узлы Merkle переведены на блочное поглощение (состояние Keccak в регистрах, а не в local memory); warp-вариант без 64-битного деления на каждый байт и без расходящегося `switch` по lane; один GPU hash-backend на набор (риск OOM на 4 GiB); cuPQC не включается до появления исходников этапа 6; skip CPU-fallback компонентов покрыт тестом; `-Xptxas -v` в build.log. 197 тестов. Подробности — `docs/stages/05_gpu_sha3_merkle.md`, раздел «Ревью». |
+| 2026-10-16 | Этап 6, часть А: GPU ML-KEM-768 / ML-DSA-65 на cuPQC-PK — код без компиляции с cuPQC. API взят из документации и официальных примеров NVIDIA (ссылки — в `docs/stages/06_gpu_pqc.md`). Логика отделена от CUDA границей runner'ов и проверена на CPU «фальшивым cuPQC» на liboqs; **режим context string ML-DSA определяется калибровкой при первом использовании** (cuPQC ctx не принимает): при несовместимости batch с ctx отказывает, одиночные операции vault идут на CPU. Seeded-режим (ACVP, CPU==GPU) — на проверяемом предположении о раскладке entropy. Секреты на device обнуляются до освобождения. Добавлено `entropy_ms` в тайминги и опция `mldsa_context` в benchmark. 225 тестов. |

@@ -26,7 +26,7 @@ using Clock = std::chrono::steady_clock;
 constexpr std::size_t kDsaMessageSize = kManifestV1Size;  // в проекте подписывается только Manifest
 
 struct Samples {
-    std::vector<double> total, kernel, alloc, h2d, d2h, sync;
+    std::vector<double> total, kernel, alloc, h2d, d2h, sync, entropy;
 };
 
 // Warm-up + measured_runs прогонов. body(timing) — один прогон операции.
@@ -48,6 +48,7 @@ Samples measure(const BenchConfig& cfg, Body&& body) {
         s.h2d.push_back(tb.h2d_ms);
         s.d2h.push_back(tb.d2h_ms);
         s.sync.push_back(tb.sync_ms);
+        s.entropy.push_back(tb.entropy_ms);
     }
     return s;
 }
@@ -65,6 +66,7 @@ BenchRecord make_record(BenchOp op, const std::string& backend, std::size_t obje
     r.h2d_ms = summarize(s.h2d);
     r.d2h_ms = summarize(s.d2h);
     r.sync_ms = summarize(s.sync);
+    r.entropy_ms = summarize(s.entropy);
     double sec = r.total_ms.median / 1e3;
     if (sec > 0) {
         r.throughput_gbps = bytes_per_run / sec / 1e9;
@@ -148,6 +150,8 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
     for (auto& e : extra) backs.push_back(NamedBackend{std::move(e.name), std::move(e.backends), {}, e.is_gpu});
     crypto::CryptoBackends ref = crypto::make_backends({});  // подготовка входов — всегда на reference CPU
     std::mt19937_64 rng(0x5EEDB10C);
+    // Context string ML-DSA для sign/verify: manifest (как в vault) или пустой (если backend не поддерживает ctx).
+    const std::string_view dsa_ctx = cfg.mldsa_empty_context ? std::string_view{} : label::kManifestSigContext;
     std::vector<BenchRecord> out;
 
     auto for_each_backend = [&](BenchOp op, Component comp, std::size_t size, std::size_t count, auto&& run) {
@@ -171,7 +175,14 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                     continue;
                 }
             }
-            out.push_back(run(nb));
+            // Backend может отказаться от конкретной операции (например, GPU ML-DSA без поддержки context
+            // string): это пропуск точки, а не ошибка прогона. Ошибки самопроверки (Internal) остаются фатальными.
+            try {
+                out.push_back(run(nb));
+            } catch (const VaultError& e) {
+                if (e.code() != ErrorCode::BackendUnavailable) throw;
+                out.push_back(skipped_record(op, nb.name, size, count, std::string("not supported by backend: ") + e.what()));
+            }
         }
     };
 
@@ -286,7 +297,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                     ref.sig->keygen_batch(batch, std::nullopt, prep, nullptr);
                     prep.message_size = kDsaMessageSize;
                     prep.messages = random_bytes(rng, batch * kDsaMessageSize);
-                    if (op == BenchOp::MlDsaVerify) ref.sig->sign_batch(prep, label::kManifestSigContext, std::nullopt, nullptr);
+                    if (op == BenchOp::MlDsaVerify) ref.sig->sign_batch(prep, dsa_ctx, std::nullopt, nullptr);
                 }
                 for_each_backend(op, Component::Sig, op == BenchOp::MlDsaKeygen ? 0 : kDsaMessageSize, batch, [&](NamedBackend& nb) {
                     crypto::SigBatch sb;
@@ -297,7 +308,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                                 "ML-DSA keygen: keys do not work with reference");
                     } else if (op == BenchOp::MlDsaSign) {
                         s = measure(cfg, [&](TimingBreakdown& tb) {
-                            nb.backends->sig->sign_batch(prep, label::kManifestSigContext, std::nullopt, &tb);
+                            nb.backends->sig->sign_batch(prep, dsa_ctx, std::nullopt, &tb);
                         });
                         // Все подписи backend'а проходят reference verify.
                         crypto::SigBatch chk;
@@ -306,11 +317,11 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
                         chk.public_keys = prep.public_keys;
                         chk.messages = prep.messages;
                         chk.signatures = prep.signatures;
-                        ref.sig->verify_batch(chk, label::kManifestSigContext, nullptr);
+                        ref.sig->verify_batch(chk, dsa_ctx, nullptr);
                         require(std::all_of(chk.verify_ok.begin(), chk.verify_ok.end(), [](auto v) { return v == 1; }),
                                 "ML-DSA sign: reference verify rejects signatures");
                     } else {
-                        s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->sig->verify_batch(prep, label::kManifestSigContext, &tb); });
+                        s = measure(cfg, [&](TimingBreakdown& tb) { nb.backends->sig->verify_batch(prep, dsa_ctx, &tb); });
                         require(std::all_of(prep.verify_ok.begin(), prep.verify_ok.end(), [](auto v) { return v == 1; }),
                                 "ML-DSA signatures");
                     }
@@ -348,16 +359,16 @@ void write_csv(const std::filesystem::path& path, const std::vector<BenchRecord>
     f << std::setprecision(10);
     f << "op,backend,object_size,count,skipped,skip_reason,n,"
          "total_mean_ms,total_median_ms,total_min_ms,total_max_ms,total_stddev_ms,"
-         "kernel_median_ms,alloc_median_ms,h2d_median_ms,d2h_median_ms,sync_median_ms,"
-         "kernel_mean_ms,alloc_mean_ms,h2d_mean_ms,d2h_mean_ms,sync_mean_ms,"
+         "kernel_median_ms,alloc_median_ms,h2d_median_ms,d2h_median_ms,sync_median_ms,entropy_median_ms,"
+         "kernel_mean_ms,alloc_mean_ms,h2d_mean_ms,d2h_mean_ms,sync_mean_ms,entropy_mean_ms,"
          "throughput_gbps,ops_per_sec,latency_ms\n";
     for (const auto& r : records) {
         f << to_string(r.op) << ',' << r.backend << ',' << r.object_size << ',' << r.count << ',' << (r.skipped ? 1 : 0)
           << ',' << csv_quote(r.skip_reason) << ',' << r.total_ms.n << ',' << r.total_ms.mean << ',' << r.total_ms.median
           << ',' << r.total_ms.min << ',' << r.total_ms.max << ',' << r.total_ms.stddev << ',' << r.kernel_ms.median << ','
-          << r.alloc_ms.median << ',' << r.h2d_ms.median << ',' << r.d2h_ms.median << ',' << r.sync_ms.median << ','
+          << r.alloc_ms.median << ',' << r.h2d_ms.median << ',' << r.d2h_ms.median << ',' << r.sync_ms.median << ',' << r.entropy_ms.median << ','
           << r.kernel_ms.mean << ',' << r.alloc_ms.mean << ',' << r.h2d_ms.mean << ',' << r.d2h_ms.mean << ','
-          << r.sync_ms.mean << ',' << r.throughput_gbps << ',' << r.ops_per_sec << ',' << r.latency_ms << '\n';
+          << r.sync_ms.mean << ',' << r.entropy_ms.mean << ',' << r.throughput_gbps << ',' << r.ops_per_sec << ',' << r.latency_ms << '\n';
     }
     if (!f) throw VaultError(ErrorCode::Io, "write failed: " + path.string());
 }
@@ -392,7 +403,7 @@ void write_json(const std::filesystem::path& path, const SystemInfo& info, const
     j["config"] = {{"ops", ops}, {"backends", backends}, {"backend_options", backend_options}, {"object_sizes", cfg.object_sizes},
                    {"object_counts", cfg.object_counts}, {"batch_sizes", cfg.batch_sizes},
                    {"cpu_threads", cfg.backends.empty() ? 0u : resolve_thread_count(cfg.backends.front().cpu_threads)},
-                   {"max_total_bytes", cfg.max_total_bytes}, {"warmup_runs", cfg.warmup_runs},
+                   {"max_total_bytes", cfg.max_total_bytes}, {"mldsa_context", cfg.mldsa_empty_context ? "empty" : "manifest"}, {"warmup_runs", cfg.warmup_runs},
                    {"measured_runs", cfg.measured_runs}, {"include_alloc_in_total", cfg.include_alloc_in_total}};
     json recs = json::array();
     for (const auto& r : records) {
@@ -401,6 +412,7 @@ void write_json(const std::filesystem::path& path, const SystemInfo& info, const
                         {"total_ms", summary_json(r.total_ms)}, {"kernel_ms", summary_json(r.kernel_ms)},
                         {"alloc_ms", summary_json(r.alloc_ms)}, {"h2d_ms", summary_json(r.h2d_ms)},
                         {"d2h_ms", summary_json(r.d2h_ms)}, {"sync_ms", summary_json(r.sync_ms)},
+                        {"entropy_ms", summary_json(r.entropy_ms)},
                         {"throughput_gbps", r.throughput_gbps}, {"ops_per_sec", r.ops_per_sec},
                         {"latency_ms", r.latency_ms}});
     }

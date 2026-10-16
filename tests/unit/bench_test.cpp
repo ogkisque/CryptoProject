@@ -116,6 +116,15 @@ TEST(BenchConfig, BackendObjectsCarryGpuOptionsAndLabels) {
     bad(R"([42])", "b7.json");
 }
 
+TEST(BenchConfig, MlDsaContextOption) {
+    TmpDir d;
+    const char* base = R"({"ops": ["mldsa_sign"], "batch_sizes": [1], "mldsa_context": )";
+    EXPECT_FALSE(load_bench_config(d.write("a.json", std::string(base) + "\"manifest\"}")).mldsa_empty_context);
+    EXPECT_TRUE(load_bench_config(d.write("b.json", std::string(base) + "\"empty\"}")).mldsa_empty_context);
+    EXPECT_THROW(load_bench_config(d.write("c.json", std::string(base) + "\"other\"}")), VaultError);
+    EXPECT_FALSE(load_bench_config(d.write("d.json", R"({"ops": ["mldsa_sign"], "batch_sizes": [1]})")).mldsa_empty_context);
+}
+
 TEST(BenchConfig, ParsesFieldsAndRejectsBadInput) {
     TmpDir d;
     BenchConfig c = load_bench_config(d.write("ok.json", kTinyConfig));
