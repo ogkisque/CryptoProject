@@ -1,0 +1,12 @@
+{
+  "_comment": "Быстрый smoke-прогон (минуты). Для отладки benchmark-кода, в т.ч. на CPU-машине.",
+  "ops": ["sha3", "merkle_build", "merkle_verify", "mlkem_keygen", "mlkem_encaps", "mlkem_decaps",
+          "mldsa_keygen", "mldsa_sign", "mldsa_verify"],
+  "backends": ["cpu", "cpu-mt", "gpu"],
+  "object_sizes": [1024, 65536],
+  "object_counts": [10, 1000],
+  "batch_sizes": [1, 100],
+  "max_total_bytes": 268435456,
+  "warmup_runs": 1,
+  "measured_runs": 3
+}

@@ -1,0 +1,12 @@
+{
+  "_comment": "Полная матрица §45-§47. Комбинации > max_total_bytes помечаются skipped (например 100000 x 16 MiB = 1.6 TB).",
+  "ops": ["sha3", "merkle_build", "merkle_verify", "mlkem_keygen", "mlkem_encaps", "mlkem_decaps",
+          "mldsa_keygen", "mldsa_sign", "mldsa_verify"],
+  "backends": ["cpu", "cpu-mt", "gpu"],
+  "object_sizes": [1024, 4096, 65536, 1048576, 16777216],
+  "object_counts": [10, 100, 1000, 10000, 100000],
+  "batch_sizes": [1, 10, 100, 1000, 10000],
+  "max_total_bytes": 4294967296,
+  "warmup_runs": 3,
+  "measured_runs": 10
+}
