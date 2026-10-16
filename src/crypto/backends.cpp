@@ -66,7 +66,7 @@ CryptoBackends make_backends(const BackendConfig& cfg) {
             opt.max_chunk_bytes = cfg.gpu_max_chunk_bytes;
             opt.merkle_cpu_threshold = cfg.gpu_merkle_cpu_threshold;
             b.hash = gpu::make_gpu_hash_backend(opt);
-            b.merkle = gpu::make_gpu_merkle_backend(opt);
+            b.merkle = gpu::make_gpu_merkle_backend(opt, b.hash);  // один GPU hash-backend на набор
             // ML-KEM/ML-DSA на GPU (этап 6) могут быть недоступны (нет cuPQC). Тогда vault работает с
             // CPU-реализацией, а benchmark по name() != "gpu" помечает такие точки как skipped, а не
             // выдаёт CPU-замер за GPU. Так сбой PQC не мешает SHA3/Merkle.

@@ -146,7 +146,63 @@ VAULT_HD inline void sha3_finalize(Sha3_256State& st, std::uint8_t out[32]) {
     for (unsigned i = 0; i < 4; ++i) store_le64(out + 8 * i, st.s[i]);
 }
 
-// SHA3-256(domain || data); domain < 0 -> без префикса (сырой SHA3-256).
+// Число блоков sponge для сообщения из total_len байт: padding всегда добавляет блок (или дополняет последний).
+VAULT_HD constexpr std::size_t sha3_block_count(std::size_t total_len) { return total_len / kSha3Rate + 1; }
+
+// Геометрия виртуального сообщения "domain || data || pad": считается ОДИН раз на объект
+// (деление на rate — дорогая 64-битная операция на GPU, её нельзя делать на каждый байт).
+struct Sha3PadGeometry {
+    std::size_t prefix;  // 1, если есть domain-байт
+    std::size_t total;   // prefix + len
+    std::size_t padded;  // кратно kSha3Rate
+};
+
+VAULT_HD inline Sha3PadGeometry sha3_pad_geometry(int domain, std::size_t data_len) {
+    Sha3PadGeometry g{};
+    g.prefix = domain >= 0 ? 1 : 0;
+    g.total = g.prefix + data_len;
+    g.padded = sha3_block_count(g.total) * kSha3Rate;
+    return g;
+}
+
+// Байт idx виртуального сообщения с уже применённым padding'ом SHA3 (0x06 ... 0x80).
+VAULT_HD inline std::uint8_t sha3_padded_byte(const Sha3PadGeometry& g, int domain, const std::uint8_t* data,
+                                              std::size_t idx) {
+    std::uint8_t b = 0;
+    if (idx < g.total) b = (g.prefix && idx == 0) ? static_cast<std::uint8_t>(domain) : data[idx - g.prefix];
+    if (idx == g.total) b |= 0x06;
+    if (idx == g.padded - 1) b |= 0x80;
+    return b;
+}
+
+// 8 байт (лейн) виртуального сообщения, начиная с byte_index (кратно 8). Быстрый путь — лейн целиком в данных.
+VAULT_HD inline std::uint64_t sha3_padded_lane(const Sha3PadGeometry& g, int domain, const std::uint8_t* data,
+                                               std::size_t byte_index) {
+    if (byte_index >= g.prefix && byte_index + 8 <= g.total) return load_le64(data + (byte_index - g.prefix));
+    std::uint64_t w = 0;
+    for (unsigned k = 0; k < 8; ++k) w |= static_cast<std::uint64_t>(sha3_padded_byte(g, domain, data, byte_index + k)) << (8u * k);
+    return w;
+}
+
+// SHA3-256(domain || data) поглощением целыми блоками — вариант для kernel'ов.
+// Все индексы состояния после развёртки — константы, поэтому s[25] остаётся в регистрах. В потоковом
+// sha3_absorb индекс s[pos >> 3] динамический, и на GPU всё состояние ушло бы в local memory.
+VAULT_HD inline void sha3_256_domain_blockwise(int domain, const std::uint8_t* data, std::size_t len,
+                                               std::uint8_t out[32]) {
+    const Sha3PadGeometry g = sha3_pad_geometry(domain, len);
+    std::uint64_t s[25];
+    VAULT_UNROLL
+    for (unsigned i = 0; i < 25; ++i) s[i] = 0;
+    for (std::size_t base = 0; base < g.padded; base += kSha3Rate) {
+        VAULT_UNROLL
+        for (unsigned k = 0; k < kSha3Rate / 8; ++k) s[k] ^= sha3_padded_lane(g, domain, data, base + 8u * k);
+        keccak_f1600(s);
+    }
+    VAULT_UNROLL
+    for (unsigned i = 0; i < 4; ++i) store_le64(out + 8 * i, s[i]);
+}
+
+// SHA3-256(domain || data); domain < 0 -> без префикса (сырой SHA3-256). Потоковый вариант (CPU, host_hash).
 VAULT_HD inline void sha3_256_domain(int domain, const std::uint8_t* data, std::size_t len, std::uint8_t out[32]) {
     Sha3_256State st;
     sha3_init(st);

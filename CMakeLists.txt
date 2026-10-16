@@ -10,6 +10,7 @@ option(VAULT_BUILD_BENCH   "Собрать benchmark-команду"            
 option(VAULT_FETCH_DEPS    "Скачивать liboqs/CLI11/GTest через FetchContent" ON)
 option(VAULT_SANITIZE      "ASan + UBSan (только CPU-сборка)"            OFF)
 set(VAULT_CUDA_ARCH "86" CACHE STRING "CUDA architectures (RTX 3050 = 86)")
+option(VAULT_CUDA_PTXAS_VERBOSE "Печатать регистры/spill'ы kernel'ов при сборке (-Xptxas -v)" ON)
 set(CUPQC_ROOT "" CACHE PATH "Путь к распакованному cuPQC SDK")
 
 if(VAULT_ENABLE_CUDA)

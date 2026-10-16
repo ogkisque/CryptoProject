@@ -118,7 +118,8 @@ private:
 
 class GpuMerkleBackend final : public merkle::IMerkleBackend {
 public:
-    explicit GpuMerkleBackend(const GpuOptions& opt) : ctx_(opt), hash_(make_gpu_hash_backend(opt)) {}
+    GpuMerkleBackend(const GpuOptions& opt, std::shared_ptr<crypto::IHashBackend> hash)
+        : ctx_(opt), hash_(hash ? std::move(hash) : make_gpu_hash_backend(opt)) {}
 
     std::string_view name() const override { return "gpu"; }
 
@@ -236,7 +237,12 @@ private:
 }  // namespace
 
 std::shared_ptr<merkle::IMerkleBackend> make_gpu_merkle_backend(const GpuOptions& opt) {
-    return std::make_shared<GpuMerkleBackend>(opt);
+    return std::make_shared<GpuMerkleBackend>(opt, nullptr);
+}
+
+std::shared_ptr<merkle::IMerkleBackend> make_gpu_merkle_backend(const GpuOptions& opt,
+                                                                std::shared_ptr<crypto::IHashBackend> hash) {
+    return std::make_shared<GpuMerkleBackend>(opt, std::move(hash));
 }
 
 }  // namespace vault::gpu

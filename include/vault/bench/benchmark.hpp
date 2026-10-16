@@ -61,6 +61,9 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg);
 struct BenchBackend {
     std::string name;
     crypto::CryptoBackends backends;
+    // true: набор считается GPU-набором, и его компоненты с name() != "gpu" (CPU-fallback, например без cuPQC)
+    // пропускаются, а не выдаются за GPU-замер. Позволяет проверить эту логику на CPU-сборке.
+    bool is_gpu = false;
 };
 std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<BenchBackend> extra);
 void write_csv(const std::filesystem::path& path, const std::vector<BenchRecord>& records);

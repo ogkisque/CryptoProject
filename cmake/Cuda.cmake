@@ -19,7 +19,15 @@ function(vault_attach_cuda target)
   # --- cuPQC (этап 6): без него собираем заглушки gpu_pqc_stub.cpp ---
   # UNVERIFIED(cuPQC): имя CMake-пакета/цели и имена заголовков/библиотеки берутся из документации SDK.
   set(_have_cupqc OFF)
-  if(CUPQC_ROOT)
+  # Реализации GPU ML-KEM/ML-DSA появляются на этапе 6. Пока их нет, cuPQC не включаем даже при заданном
+  # CUPQC_ROOT: иначе заглушки gpu_pqc_stub.cpp выключатся, а реализаций не будет -> ошибка линковки.
+  set(_pqc_sources_present OFF)
+  if(EXISTS ${CMAKE_SOURCE_DIR}/cuda/src/gpu_kem_backend.cu AND EXISTS ${CMAKE_SOURCE_DIR}/cuda/src/gpu_sig_backend.cu)
+    set(_pqc_sources_present ON)
+  elseif(CUPQC_ROOT)
+    message(WARNING "CUPQC_ROOT задан, но cuda/src/gpu_{kem,sig}_backend.cu ещё нет (этап 6): cuPQC не подключается")
+  endif()
+  if(CUPQC_ROOT AND _pqc_sources_present)
     find_package(cupqc CONFIG QUIET HINTS ${CUPQC_ROOT} PATH_SUFFIXES lib/cmake/cupqc)  # UNVERIFIED(cuPQC)
     if(cupqc_FOUND)
       set(_have_cupqc ON)
@@ -56,5 +64,10 @@ function(vault_attach_cuda target)
     CUDA_RESOLVE_DEVICE_SYMBOLS ON)
   target_compile_options(${target} PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr -lineinfo>)
+  # Регистры и spill'ы каждого kernel'а в лог сборки: это главный риск производительности «потока на объект»
+  # (состояние Keccak с динамической индексацией уходит в local memory), а проверить его можно только по build.log.
+  if(VAULT_CUDA_PTXAS_VERBOSE)
+    target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>)
+  endif()
   target_link_libraries(${target} PUBLIC CUDA::cudart)
 endfunction()

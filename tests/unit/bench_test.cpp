@@ -260,3 +260,51 @@ TEST(Benchmark, SelfCheckRejectsWrongBackendResults) {
     EXPECT_NO_THROW(run_benchmarks(cfg, {{"good", good}}));
     EXPECT_THROW(run_benchmarks(cfg, {{"wrong", bad}}), VaultError);
 }
+
+// GPU-набор, в котором часть компонентов — CPU-fallback (нет cuPQC): такие точки должны быть skipped,
+// а не попасть в данные как «GPU». Настоящий GPU-путь на CPU-сборке недостижим, поэтому набор подделан:
+// hash — «gpu» (обёртка над CPU с именем gpu), остальные компоненты — CPU с именем "cpu".
+namespace {
+class RenamedHash final : public crypto::IHashBackend {
+public:
+    explicit RenamedHash(std::shared_ptr<crypto::IHashBackend> inner) : inner_(std::move(inner)) {}
+    std::string_view name() const override { return "gpu"; }
+    Hash256 sha3_256(ByteView d) override { return inner_->sha3_256(d); }
+    Hash256 domain_hash(std::uint8_t dom, ByteView d) override { return inner_->domain_hash(dom, d); }
+    void sha3_256_batch(std::span<const ByteView> in, std::span<Hash256> out, TimingBreakdown* t) override {
+        inner_->sha3_256_batch(in, out, t);
+    }
+    void domain_hash_batch(std::uint8_t dom, std::span<const ByteView> in, std::span<Hash256> out,
+                           TimingBreakdown* t) override {
+        inner_->domain_hash_batch(dom, in, out, t);
+    }
+
+private:
+    std::shared_ptr<crypto::IHashBackend> inner_;
+};
+}  // namespace
+
+TEST(Benchmark, GpuSetSkipsCpuFallbackComponents) {
+    crypto::CryptoBackends set = crypto::make_backends({});
+    set.hash = std::make_shared<RenamedHash>(set.hash);
+    BenchConfig cfg;
+    cfg.ops = {BenchOp::Sha3, BenchOp::MerkleBuild, BenchOp::MlKemKeygen, BenchOp::MlDsaSign};
+    cfg.object_sizes = {64};
+    cfg.object_counts = {4};
+    cfg.batch_sizes = {2};
+    cfg.warmup_runs = 0;
+    cfg.measured_runs = 1;
+    std::vector<BenchRecord> recs = run_benchmarks(cfg, {{"fake-gpu", set, /*is_gpu=*/true}});
+    ASSERT_EQ(recs.size(), 4u);
+    for (const auto& r : recs) {
+        SCOPED_TRACE(std::string(to_string(r.op)));
+        if (r.op == BenchOp::Sha3) {
+            EXPECT_FALSE(r.skipped);  // hash называется "gpu" -> измеряется
+        } else {
+            EXPECT_TRUE(r.skipped);   // merkle/kem/sig — "cpu"/"reference" внутри GPU-набора
+            EXPECT_NE(r.skip_reason.find("cpu fallback"), std::string::npos) << r.skip_reason;
+        }
+    }
+    // Тот же набор без пометки is_gpu измеряется целиком.
+    for (const auto& r : run_benchmarks(cfg, {{"plain", set, false}})) EXPECT_FALSE(r.skipped);
+}

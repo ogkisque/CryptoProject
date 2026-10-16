@@ -28,14 +28,14 @@ namespace vault::gpu {
 
 namespace {
 
-// UNVERIFIED(perf): состояние Keccak (25 * 8 байт) + временные массивы в theta/rho-pi могут вытеснять регистры
-// в local memory; на SM 86 это ожидаемо и входит в оценку «поток на объект» (см. strategy = warp как альтернативу).
+// Блочное поглощение (sha3_256_domain_blockwise): индексы состояния — константы, s[25] в регистрах.
+// UNVERIFIED(perf): число регистров и spill'ы — смотреть в build.log (-Xptxas -v, VAULT_CUDA_PTXAS_VERBOSE).
 __global__ void sha3_thread_per_object_kernel(const std::uint8_t* data, const std::uint64_t* offsets,
                                               std::uint64_t count, int domain, std::uint8_t* out) {
     const std::uint64_t stride = static_cast<std::uint64_t>(gridDim.x) * blockDim.x;
     for (std::uint64_t i = static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x; i < count; i += stride)
-        kernels::sha3_256_domain(domain, data + offsets[i], static_cast<std::size_t>(offsets[i + 1] - offsets[i]),
-                                 out + 32 * i);
+        kernels::sha3_256_domain_blockwise(domain, data + offsets[i],
+                                           static_cast<std::size_t>(offsets[i + 1] - offsets[i]), out + 32 * i);
 }
 
 __global__ void sha3_warp_per_object_kernel(const std::uint8_t* data, const std::uint64_t* offsets,

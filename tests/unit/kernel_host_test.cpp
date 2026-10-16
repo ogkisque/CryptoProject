@@ -131,10 +131,47 @@ TEST(KernelWarp, PermutationEmulationEqualsScalarKeccak) {
 TEST(KernelWarp, PaddedMessageAndSpongeEmulationMatchOpenSsl) {
     std::mt19937_64 rng(5);
     Bytes buf = rand_bytes(rng, 1000);
-    for (std::size_t n : {0u, 1u, 134u, 135u, 136u, 137u, 271u, 272u, 500u, 1000u})
+    for (std::size_t n : {0u, 1u, 6u, 7u, 8u, 9u, 134u, 135u, 136u, 137u, 143u, 144u, 271u, 272u, 500u, 1000u})
         for (int domain : {-1, 0x00, 0x11}) {
             ByteView v(buf.data(), n);
             EXPECT_EQ(gpu_test::sha3_warp_emulated(domain, v), openssl_hash(domain, v)) << n << "/" << domain;
+        }
+}
+
+// Блочный вариант (используется kernel'ом «поток на объект» и узлами Merkle) совпадает с OpenSSL на всех
+// длинах 0..600 (все остатки по rate и по 8) для сырого SHA3 и с domain-префиксом.
+TEST(KernelKeccak, BlockwiseMatchesOpenSslForAllLengths) {
+    std::mt19937_64 rng(11);
+    Bytes buf = rand_bytes(rng, 600);
+    for (std::size_t n = 0; n <= 600; ++n)
+        for (int domain : {-1, 0x00, 0x13}) {
+            Hash256 h;
+            k::sha3_256_domain_blockwise(domain, buf.data(), n, h.data());
+            ASSERT_EQ(h, openssl_hash(domain, ByteView(buf.data(), n))) << n << "/" << domain;
+        }
+}
+
+// rho без ветвлений (warp-вариант) совпадает с таблицей-switch для всех 25 лейнов.
+TEST(KernelWarp, BranchlessRhoMatchesSwitch) {
+    for (unsigned i = 0; i < 25; ++i) EXPECT_EQ(k::keccak_rho_offset_branchless(i), k::keccak_rho_offset(i)) << i;
+}
+
+// Быстрый путь sha3_padded_lane (лейн целиком в данных) совпадает с побайтовой сборкой на всех позициях,
+// включая сдвиг на domain-байт, конец данных и байты padding'а.
+TEST(KernelWarp, PaddedLaneFastPathMatchesBytewise) {
+    std::mt19937_64 rng(9);
+    Bytes buf = rand_bytes(rng, 300);
+    for (std::size_t n : {0u, 1u, 7u, 8u, 9u, 135u, 136u, 137u, 143u, 144u, 271u, 272u, 300u})
+        for (int domain : {-1, 0x05}) {
+            const k::Sha3PadGeometry g = k::sha3_pad_geometry(domain, n);
+            ASSERT_EQ(g.padded % k::kSha3Rate, 0u);
+            ASSERT_GT(g.padded, g.total);
+            for (std::size_t idx = 0; idx < g.padded; idx += 8) {
+                std::uint64_t expect = 0;
+                for (unsigned b = 0; b < 8; ++b)
+                    expect |= static_cast<std::uint64_t>(k::sha3_padded_byte(g, domain, buf.data(), idx + b)) << (8 * b);
+                EXPECT_EQ(k::sha3_padded_lane(g, domain, buf.data(), idx), expect) << n << "/" << domain << "/" << idx;
+            }
         }
 }
 

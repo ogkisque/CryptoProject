@@ -145,7 +145,7 @@ std::vector<BenchRecord> run_benchmarks(const BenchConfig& cfg, std::vector<Benc
         }
         backs.push_back(std::move(nb));
     }
-    for (auto& e : extra) backs.push_back(NamedBackend{std::move(e.name), std::move(e.backends), {}});
+    for (auto& e : extra) backs.push_back(NamedBackend{std::move(e.name), std::move(e.backends), {}, e.is_gpu});
     crypto::CryptoBackends ref = crypto::make_backends({});  // подготовка входов — всегда на reference CPU
     std::mt19937_64 rng(0x5EEDB10C);
     std::vector<BenchRecord> out;

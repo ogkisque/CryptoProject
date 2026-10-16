@@ -19,19 +19,21 @@ inline constexpr std::uint8_t kProofSiblingLeft = 0;
 inline constexpr std::uint8_t kProofSiblingRight = 1;
 inline constexpr std::uint8_t kProofUnpaired = 2;
 
-// SHA3(0x01 || L || R): L, R — по 32 байта.
+// SHA3(0x01 || L || R): L, R — по 32 байта. Блочное поглощение (состояние в регистрах, см. keccak.cuh);
+// 0x01 || L || R = 65 байт — один блок sponge.
 VAULT_HD inline void merkle_parent(const std::uint8_t* left, const std::uint8_t* right, std::uint8_t out[32]) {
-    Sha3_256State st;
-    sha3_init(st);
-    sha3_absorb_byte(st, static_cast<std::uint8_t>(kDomMerkleParent));
-    sha3_absorb(st, left, 32);
-    sha3_absorb(st, right, 32);
-    sha3_finalize(st, out);
+    std::uint8_t lr[64];
+    VAULT_UNROLL
+    for (unsigned i = 0; i < 32; ++i) {
+        lr[i] = left[i];
+        lr[32 + i] = right[i];
+    }
+    sha3_256_domain_blockwise(kDomMerkleParent, lr, 64, out);
 }
 
 // SHA3(0x02 || x)
 VAULT_HD inline void merkle_unpaired(const std::uint8_t* x, std::uint8_t out[32]) {
-    sha3_256_domain(kDomMerkleUnpaired, x, 32, out);
+    sha3_256_domain_blockwise(kDomMerkleUnpaired, x, 32, out);
 }
 
 // Узел parent_idx следующего уровня по текущему уровню из n узлов: 2p и 2p+1, а при нечётном n

@@ -82,6 +82,25 @@ bench/configs/gpu_*.json         # дополнительные серии (pinn
 | 2026-10-16 | План пересмотрен: CUDA здесь не ставится, GPU-код пишется без компиляции, сборка и запуск — на GPU-машине автором с обратной связью (`docs/gpu_workflow.md`) |
 | 2026-10-16 | **Часть А готова** (код без компиляции CUDA; host-часть и kernel-логика проверены здесь). Детали ниже. |
 
+### Ревью (2026-10-16)
+
+Проверено: Keccak-f[1600], sponge и padding (тесты против OpenSSL на всех длинах), индексная математика warp-варианта (эмуляция), однородность итераций warp'а перед `__shfl_sync` (номер объекта зависит только от warp'а), конвейер порций и ожидание слота, ping-pong уровней Merkle, `CUDA_CHECK` и сброс залипшей ошибки, освобождение буферов при исключении (`drain`), заглушки PQC.
+
+| # | Находка | Исправление |
+|---|---|---|
+| R1 | **«Поток на объект» держал бы состояние Keccak в local memory:** потоковый `sha3_absorb` индексирует `st.s[st.pos >> 3]` динамически, а массив с динамическим индексом на GPU не может жить в регистрах. Это относилось и к kernel'у SHA3, и к узлам Merkle (`merkle_parent`/`merkle_unpaired` шли через тот же sponge) | `sha3_256_domain_blockwise` (`keccak.cuh`): поглощение целыми блоками через `sha3_padded_lane`, все индексы состояния — константы после развёртки. Используется kernel'ом «поток на объект» и узлами Merkle; потоковый вариант остался для CPU (`host_hash`). Тест `KernelKeccak.BlockwiseMatchesOpenSslForAllLengths` (0…600 байт, с префиксом и без) |
+| R2 | **«Warp на объект» был бы искусственно медленным:** `sha3_padded_byte` на каждый байт пересчитывал `sha3_block_count()` (64-битное деление на 136 — десятки инструкций на GPU); `keccak_rho_offset(lane)` — `switch` по номеру lane'а, то есть до 25 расходящихся веток на раунд. Сравнение стратегий в отчёте вышло бы нечестным | геометрия padding'а (`Sha3PadGeometry`) считается один раз на объект; `sha3_padded_lane` собирает лейн целиком (быстрый путь — `load_le64`); `keccak_rho_offset_branchless` — смещения упакованы в три 64-битные константы, выбор без ветвлений. Эмуляция warp'а использует те же функции. Тесты `BranchlessRhoMatchesSwitch`, `PaddedLaneFastPathMatchesBytewise` |
+| R3 | **Два независимых GPU-hash-backend'а в одном наборе** (`b.hash` и внутренний в `GpuMerkleBackend`): каждый рассчитывает `max_chunk_bytes` как 60% свободной VRAM, а при `pool_buffers: true` их буферы вместе не поместились бы на карте с 4 GiB | `make_gpu_merkle_backend(opt, hash)`: Merkle использует `b.hash` того же набора |
+| R4 | При заданном `CUPQC_ROOT` до этапа 6 включался `VAULT_HAS_CUPQC`, заглушки `gpu_pqc_stub.cpp` выключались, а реализаций ещё нет → ошибка линковки `make_gpu_kem_backend` | cuPQC подключается, только если существуют `cuda/src/gpu_{kem,sig}_backend.cu`; иначе предупреждение CMake |
+| R5 | Пометка skipped для CPU-fallback компонентов GPU-набора ни разу не выполнялась (на CPU-сборке GPU-ветка недостижима) | `BenchBackend::is_gpu`; тест `Benchmark.GpuSetSkipsCpuFallbackComponents` (поддельный GPU-набор: hash «gpu» измеряется, merkle/kem/sig — skipped) |
+| R6 | Регистры и spill'ы kernel'ов — главный риск производительности, но увидеть их можно только на GPU-машине | опция `VAULT_CUDA_PTXAS_VERBOSE` (по умолчанию ON): `-Xptxas -v` печатает регистры/spill'ы каждого kernel'а в `build.log` |
+
+**Что смотреть в первом `build.log` на GPU-машине:** строки `ptxas info : Used N registers, ... bytes spill stores` для `sha3_thread_per_object_kernel`, `sha3_warp_per_object_kernel`, `merkle_level_kernel`, `merkle_proof_kernel`. Ненулевые spill'ы у «потока на объект» — повод уменьшить развёртку (`VAULT_UNROLL` в раундах) или ограничить регистры `__launch_bounds__`.
+
+**Принято как есть:** в «потоке на объект» каждый поток читает свой объект побайтово (`load_le64` — 8 байтовых загрузок), обращения соседних потоков не коалесцируются. Это свойство стратегии, а не ошибка: для отчёта это одно из объяснений, почему для крупных объектов warp-вариант или CPU могут выигрывать.
+
+Итого тестов: 197 (из них 10 GPU-тестов на этой машине skipped), Release и ASan/UBSan зелёные, `scripts/check_cuda_syntax.sh` — ok.
+
 ### Часть А: что сделано и принятые решения
 
 **Версии, на которые рассчитан код (для сверки на GPU-машине):** CUDA Toolkit 12.x (`find_package(CUDAToolkit 12.0)`), SM 86, nvcc с C++20 (`CUDA_STANDARD 20`: публичные заголовки проекта используют `std::span`; для GCC 13 нужен CUDA ≥ 12.4, иначе `-DCMAKE_CUDA_HOST_COMPILER=g++-12`). cuPQC на этом этапе не используется (этап 6); без него собираются заглушки `cuda/src/gpu_pqc_stub.cpp`.

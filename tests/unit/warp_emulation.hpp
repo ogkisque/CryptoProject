@@ -24,7 +24,8 @@ inline void keccak_f1600_warp_emulated(std::uint64_t a[32]) {
             }
             th[lane] = a[lane] ^ ca ^ k::rotl64(cb, 1);
         }
-        for (unsigned lane = 0; lane < 32; ++lane) rot[lane] = k::rotl64(th[lane], lane < 25 ? k::keccak_rho_offset(lane) : 0u);
+        for (unsigned lane = 0; lane < 32; ++lane)
+            rot[lane] = k::rotl64(th[lane], lane < 25 ? k::keccak_rho_offset_branchless(lane) : 0u);
         for (unsigned lane = 0; lane < 32; ++lane) b[lane] = rot[lane < 25 ? k::keccak_pi_source(lane) : lane];
         for (unsigned lane = 0; lane < 32; ++lane) {
             std::uint64_t b1 = b[lane < 25 ? k::warp_chi_a(lane) : lane], b2 = b[lane < 25 ? k::warp_chi_b(lane) : lane];
@@ -36,15 +37,11 @@ inline void keccak_f1600_warp_emulated(std::uint64_t a[32]) {
 }
 
 inline Hash256 sha3_warp_emulated(int domain, ByteView data) {
-    const std::size_t total = (domain >= 0 ? 1 : 0) + data.size();
+    // Тот же код поглощения, что в sha3_256_domain_warp (геометрия считается один раз на объект).
+    const k::Sha3PadGeometry g = k::sha3_pad_geometry(domain, data.size());
     std::uint64_t a[32] = {};
-    for (std::size_t blk = 0; blk < k::sha3_block_count(total); ++blk) {
-        for (unsigned lane = 0; lane < k::kSha3Rate / 8; ++lane) {
-            std::uint64_t w = 0;
-            for (unsigned i = 0; i < 8; ++i)
-                w |= static_cast<std::uint64_t>(k::sha3_padded_byte(domain, data.data(), data.size(), blk * k::kSha3Rate + 8 * lane + i)) << (8 * i);
-            a[lane] ^= w;
-        }
+    for (std::size_t base = 0; base < g.padded; base += k::kSha3Rate) {
+        for (unsigned lane = 0; lane < k::kSha3Rate / 8; ++lane) a[lane] ^= k::sha3_padded_lane(g, domain, data.data(), base + 8 * lane);
         keccak_f1600_warp_emulated(a);
     }
     Hash256 h;
