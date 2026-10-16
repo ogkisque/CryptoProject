@@ -38,8 +38,8 @@ CUPQC_ROOT=/opt/cupqc-sdk ./scripts/gpu_run_all.sh --quick    # сборка, ct
 | Шаг | Что делает | Если не получилось |
 |---|---|---|
 | `00_env` | `check_gpu_env.sh`: nvidia-smi (в т.ч. `-q`), nvcc, cmake, компилятор, cuPQC, python/pandas, lscpu, governor, free, df | — |
-| `01_build_*` | Каскад: **CUDA + cuPQC** (`build/gpu`, нужен `CUPQC_ROOT`) → **CUDA без cuPQC** (`build/gpu_nopqc`) → **только CPU** (`build/cpu`). Без `nvcc` сразу CPU-режим | следующий вариант каскада; в сводке видно, какая сборка использована; весь вывод — в `build.log` в корне архива |
-| `01a_flags` | `-march=native` в флагах запрещён (воспроизводимость) | `fail` |
+| `01_build_*` | Каскад: **CUDA + cuPQC** (`build/gpu`, нужен `CUPQC_ROOT`) → **CUDA + cuPQC с `-arch=native`** (`build/gpu_native`, как в примерах NVIDIA — на случай сбоя device-link с LTO) → **CUDA без cuPQC** (`build/gpu_nopqc`) → **только CPU** (`build/cpu`). Без `nvcc` сразу CPU-режим | следующий вариант каскада; в сводке видно, какая сборка использована; весь вывод — в `build.log` в корне архива |
+| `01a_flags` | сборка должна быть `Release`, и `-march=native` в флагах запрещён (воспроизводимость) | `fail` |
 | `02_ctest`, `02a_ctest_gpu` | весь `ctest` (JUnit — `ctest.xml`), затем `-L gpu -V`; строки `[cuPQC] ...` → `cupqc_report.txt` | шаг `fail`, дальше идёт |
 | `03a/b/c_smoke_*` | `init/add/list/verify/extract`, кросс-открытие хранилищ cpu↔cpu-mt и (при GPU) gpu↔cpu в обе стороны, порча подписи → код 2 на обоих backend'ах | `fail`/`skipped` (нет GPU) |
 | `04_bench_quick` | `bench/configs/quick.json` → `results_quick.csv/json` | `fail`, анализ без CSV пропускается |
