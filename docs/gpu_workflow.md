@@ -29,18 +29,51 @@ CUDA Toolkit и nvcc **≥ 12.8** (требование cuPQC-PK; SHA3/Merkle с
 
 ## `scripts/gpu_run_all.sh`
 
-| Шаг | Действие |
-|---|---|
-| 0 | Снимок окружения |
-| 1 | Release-сборка `VAULT_ENABLE_CUDA=ON` (`CUPQC_ROOT` — путь к SDK); при отсутствии cuPQC — сборка без него, с предупреждением |
-| 2 | `ctest` полностью, включая метку `gpu` |
-| 3 | Smoke vault: `init/add/verify/extract --backend gpu`, кросс-открытие хранилищ cpu↔gpu |
-| 4 | `bench/configs/quick.json` |
-| 5 | *(без `--quick`)* `bench/configs/full.json` и дополнительные серии `bench/configs/gpu_*.json` |
-| 6 | `analyze.py` → `summary.md`, графики, `crossover.csv` |
-| 7 | Архив |
+```bash
+CUPQC_ROOT=/opt/cupqc-sdk ./scripts/gpu_run_all.sh --quick    # сборка, ctest, smoke, quick.json, анализ
+./scripts/gpu_run_all.sh                                      # полный: full.json и gpu_*.json
+./scripts/gpu_run_all.sh --runs 3                             # полный с 3 повторами full.json (оценка стабильности)
+```
 
-Сбой шага пишется в `RUN_SUMMARY.txt` и не останавливает следующие (кроме полной невозможности собрать проект). Backend, не прошедший эквивалентность CPU==GPU, исключается из benchmark'а: benchmark и сам сверяет каждый результат с reference и не даст «быстрых» неверных данных (ревью этапа 4).
+| Шаг | Что делает | Если не получилось |
+|---|---|---|
+| `00_env` | `check_gpu_env.sh`: nvidia-smi (в т.ч. `-q`), nvcc, cmake, компилятор, cuPQC, python/pandas, lscpu, governor, free, df | — |
+| `01_build_*` | Каскад: **CUDA + cuPQC** (`build/gpu`, нужен `CUPQC_ROOT`) → **CUDA без cuPQC** (`build/gpu_nopqc`) → **только CPU** (`build/cpu`). Без `nvcc` сразу CPU-режим | следующий вариант каскада; в сводке видно, какая сборка использована; весь вывод — в `build.log` в корне архива |
+| `01a_flags` | `-march=native` в флагах запрещён (воспроизводимость) | `fail` |
+| `02_ctest`, `02a_ctest_gpu` | весь `ctest` (JUnit — `ctest.xml`), затем `-L gpu -V`; строки `[cuPQC] ...` → `cupqc_report.txt` | шаг `fail`, дальше идёт |
+| `03a/b/c_smoke_*` | `init/add/list/verify/extract`, кросс-открытие хранилищ cpu↔cpu-mt и (при GPU) gpu↔cpu в обе стороны, порча подписи → код 2 на обоих backend'ах | `fail`/`skipped` (нет GPU) |
+| `04_bench_quick` | `bench/configs/quick.json` → `results_quick.csv/json` | `fail`, анализ без CSV пропускается |
+| `05_bench_full_runN` | *(без `--quick`)* `full.json`, N раз; `nvidia-smi` clocks/temperature/power до и после | `fail` |
+| `05a_bench_gpu_*` | серии `gpu_*.json` (pinned/pageable, alloc, double buffering, стратегия SHA3) | `skipped` без GPU |
+| `06_analyze`, `06a_*` | `analyze.py` по всем full-прогонам (или quick) и отдельно по каждой серии `gpu_*` | `skipped` без CSV |
+
+Сбой шага пишется в `RUN_SUMMARY.txt` (`ok`/`fail`/`skipped`) и **не останавливает** следующие. Архив
+`bench/results/<время>_<хост>.tar.gz` собирается всегда (`trap EXIT`), даже после сбоя сборки; код возврата ненулевой, если
+был хоть один `fail`. В архиве: `RUN_SUMMARY.txt`, `build.log`, `env.txt`, `ptxas_kernels.txt` (регистры и spill'ы kernel'ов,
+если сборка была с CUDA), `cupqc_report.txt`, `gpu_clocks_*.txt`, `results_*.csv/json`, `logs/<шаг>.log`, `analysis*/`.
+Backend, не прошедший эквивалентность CPU==GPU, исключается из benchmark'а: benchmark сам сверяет каждый результат с reference
+и не даст «быстрых» неверных данных (ревью этапа 4).
+
+**CPU-режим** (без nvcc): собирается CPU-часть, все GPU-шаги `skipped`, архив и анализ формируются — так сценарий
+проверялся на машине разработки (`bench/analysis/test_run_all.py`).
+
+## Стенд и воспроизводимость
+
+* Release-флаги проекта: `-O3 -DNDEBUG` для C++ и стандартные `-O3` для CUDA, **без `-march=native`** (с ним бинарник привязан к
+  CPU сборочной машины). CMake предупреждает о `-march=native`, а `gpu_run_all.sh` помечает шаг `01a_flags` как `fail`.
+* Флаги, версии, коммит (с `-dirty`), число потоков cpu-mt и параметры конфига пишутся в `results.json` и в начало `summary.md`.
+* Перед замерами: governor `performance`, отсутствие фоновой нагрузки, один пользователь GPU; `env.txt` показывает governor и
+  нагрузку, `gpu_clocks_before/after.txt` — частоты, температуру и мощность до и после полного прогона.
+* Первый CUDA-вызов создаёт контекст (≈ 100+ мс): он уходит в warm-up (`GpuContext` создаётся при создании backend'а), в замеры не попадает.
+
+## Анализ результатов
+
+`bench/analysis/analyze.py run1.csv [run2.csv ...] --out DIR` (зависимости — `bench/analysis/requirements.txt`; сообщения
+`numexpr/bottleneck ... _ARRAY_API` от системных пакетов при импорте pandas безвредны). Выход: `summary.md`, `speedup.csv`,
+`crossover.csv`, `transfer_bw.csv`, `plots/*.png`. speedup считается против `cpu` и против `cpu-mt`; точки пересечения —
+по числу объектов, по размеру объекта и по batch, с интерполяцией в log-шкале и явными результатами «GPU быстрее везде» /
+«нет пересечения в диапазоне». Несколько прогонов → медианы и разброс между прогонами. Тесты: `python3 -m pytest bench/analysis`
+(или `ctest -L analysis`).
 
 ## Время и ресурсы
 

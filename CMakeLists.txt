@@ -79,6 +79,9 @@ if(VAULT_CORE_SOURCES)
     include(Cuda)
     vault_attach_cuda(vault_core)
     target_compile_definitions(vault_core PUBLIC VAULT_HAS_CUDA=1)
+    # Для SystemInfo (воспроизводимость): флаги nvcc и архитектура попадают в results.json.
+    target_compile_definitions(vault_core PRIVATE
+      VAULT_CUDA_FLAGS="${CMAKE_CUDA_FLAGS} ${CMAKE_CUDA_FLAGS_${VAULT_BUILD_TYPE_UC}} arch=${VAULT_CUDA_ARCH}")
   endif()
 
   file(GLOB VAULT_CLI_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/cli/*.cpp)
@@ -90,6 +93,21 @@ if(VAULT_CORE_SOURCES)
   if(VAULT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+    # Тесты анализа и сценария запуска (Python): только если есть pandas и matplotlib (bench/analysis/requirements.txt).
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+      execute_process(COMMAND ${Python3_EXECUTABLE} -W ignore -c "import pandas, matplotlib, pytest"
+                      RESULT_VARIABLE _py_deps OUTPUT_QUIET ERROR_QUIET)
+      if(_py_deps EQUAL 0)
+        add_test(NAME analysis_pytest
+                 COMMAND ${Python3_EXECUTABLE} -W ignore -m pytest ${CMAKE_CURRENT_SOURCE_DIR}/bench/analysis -q
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(analysis_pytest PROPERTIES LABELS analysis TIMEOUT 600
+                             ENVIRONMENT "BUILD_DIR=${CMAKE_BINARY_DIR}")
+      else()
+        message(STATUS "pandas/matplotlib/pytest не найдены: тесты анализа (analysis_pytest) пропущены")
+      endif()
+    endif()
   endif()
 else()
   message(STATUS "edu_vault: исходников реализации пока нет — собирается только vault_header_check")

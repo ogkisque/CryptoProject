@@ -27,7 +27,7 @@
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ✅ готово (2026-10-16) |
 | 5. GPU SHA3 / Merkle — код (часть А, без компиляции CUDA) | `docs/stages/05_gpu_sha3_merkle.md` | ✅ часть А (2026-10-16) |
 | 6. GPU ML-KEM / ML-DSA через cuPQC — код (часть А, без компиляции CUDA) | `docs/stages/06_gpu_pqc.md` | ✅ часть А (2026-10-16) |
-| 7. Анализ и сценарий запуска (часть А) | `docs/stages/07_experiments.md` | ☐ |
+| 7. Анализ и сценарий запуска (часть А) | `docs/stages/07_experiments.md` | ✅ часть А (2026-10-16) |
 | Сборка и запуск на GPU-машине автором (`gpu_run_all.sh --quick`, затем полный) + исправления | `docs/gpu_workflow.md` | ☐ |
 | Анализ результатов и выводы (этап 7, часть В) | `docs/stages/07_experiments.md` | ☐ |
 
@@ -95,9 +95,9 @@ src/                       реализации, раскладка повтор
 cuda/                      GPU: kernels/*.cuh (общий код device/CPU, VAULT_HD), host/ (планирование, шаблоны конвейеров — всегда собираются и тестируются), src/*.cu (только при VAULT_ENABLE_CUDA)
 tools/fakecuda/            заглушки CUDA для scripts/check_cuda_syntax.sh (проверка .cu через clang без Toolkit)
 tests/                     header_check.cpp; unit/ integration/ tamper/ crash/ (есть); gpu/ (CPU==GPU, пропускаются без устройства); vectors/
-bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
-scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, check_cuda_syntax.sh, run_bench.sh
-docs/                      format_v1.md, gpu_workflow.md (работа с GPU без локальной CUDA), gpu_machine.md, stages/01..07
+bench/                     configs/{quick,full,gpu_*}.json, analysis/ (analyze.py, тесты, fixtures/), results/ (архивы запусков)
+scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, check_cuda_syntax.sh, gpu_run_all.sh (весь прогон одним запуском), run_bench.sh
+docs/                      format_v1.md, gpu_workflow.md (работа с GPU без локальной CUDA), gpu_machine.md, stages/01..07, report/ (каркас отчёта; выводы — после запусков)
 ```
 
 ## Сборка
@@ -136,3 +136,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Ревью этапа 5: kernel «поток на объект» и узлы Merkle переведены на блочное поглощение (состояние Keccak в регистрах, а не в local memory); warp-вариант без 64-битного деления на каждый байт и без расходящегося `switch` по lane; один GPU hash-backend на набор (риск OOM на 4 GiB); cuPQC не включается до появления исходников этапа 6; skip CPU-fallback компонентов покрыт тестом; `-Xptxas -v` в build.log. 197 тестов. Подробности — `docs/stages/05_gpu_sha3_merkle.md`, раздел «Ревью». |
 | 2026-10-16 | Этап 6, часть А: GPU ML-KEM-768 / ML-DSA-65 на cuPQC-PK — код без компиляции с cuPQC. API взят из документации и официальных примеров NVIDIA (ссылки — в `docs/stages/06_gpu_pqc.md`). Логика отделена от CUDA границей runner'ов и проверена на CPU «фальшивым cuPQC» на liboqs; **режим context string ML-DSA определяется калибровкой при первом использовании** (cuPQC ctx не принимает): при несовместимости batch с ctx отказывает, одиночные операции vault идут на CPU. Seeded-режим (ACVP, CPU==GPU) — на проверяемом предположении о раскладке entropy. Секреты на device обнуляются до освобождения. Добавлено `entropy_ms` в тайминги и опция `mldsa_context` в benchmark. 225 тестов. |
 | 2026-10-16 | Ревью этапа 6: сигнатуры cuPQC независимо сверены с официальными примерами NVIDIA и Getting Started — совпадают; логика калибровки context string и обнуление секретов корректны. Исправлено: при cuPQC флаги device-кода — ровно задокументированные `-arch=sm_XY -dlto` (вместо смеси с `CUDA_ARCHITECTURES`), 1D-копии вместо 2D при равном шаге, entropy до H2D (честный `entropy_ms`), калибровка ML-DSA вне замеров. 225 тестов. Подробности — `docs/stages/06_gpu_pqc.md`, раздел «Ревью». |
+| 2026-10-16 | Этап 7, часть А: `analyze.py` (speedup против cpu и cpu-mt, точки пересечения с log-интерполяцией и явными результатами «always/never/…», графики throughput/ops/фазы GPU/heatmap, ширина H2D, стабильность по нескольким прогонам, `summary.md` только из скрипта); `gpu_run_all.sh` с каскадом сборки CUDA+cuPQC → CUDA → CPU, статусами шагов, архивом через `trap EXIT`, прогнан здесь в CPU-режиме до конца; стенд без `-march=native`; тесты анализа на реальном CPU-CSV и синтетических GPU-данных (38, `ctest -L analysis`); каркас `docs/report/`. Дальше — запуски на GPU-машине (часть Б) и анализ присланного (часть В). |

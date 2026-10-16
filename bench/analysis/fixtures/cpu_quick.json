@@ -1,0 +1,4501 @@
+{
+  "config": {
+    "backend_options": [
+      {
+        "kind": "cpu"
+      },
+      {
+        "kind": "cpu-mt",
+        "threads": 12
+      },
+      {
+        "cuda_device": 0,
+        "double_buffering": false,
+        "kind": "gpu",
+        "max_chunk_bytes": 0,
+        "merkle_cpu_threshold": 1024,
+        "pinned_host_memory": true,
+        "pool_buffers": false,
+        "strategy": "thread"
+      }
+    ],
+    "backends": [
+      "cpu",
+      "cpu-mt",
+      "gpu"
+    ],
+    "batch_sizes": [
+      1,
+      100
+    ],
+    "cpu_threads": 12,
+    "include_alloc_in_total": true,
+    "max_total_bytes": 268435456,
+    "measured_runs": 3,
+    "mldsa_context": "manifest",
+    "object_counts": [
+      10,
+      1000
+    ],
+    "object_sizes": [
+      1024,
+      65536
+    ],
+    "ops": [
+      "sha3",
+      "merkle_build",
+      "merkle_verify",
+      "mlkem_keygen",
+      "mlkem_encaps",
+      "mlkem_decaps",
+      "mldsa_keygen",
+      "mldsa_sign",
+      "mldsa_verify"
+    ],
+    "warmup_runs": 1
+  },
+  "records": [
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.024604,
+        "mean": 0.022306000000000003,
+        "median": 0.021244,
+        "min": 0.02107,
+        "n": 3,
+        "stddev": 0.001992027108249284
+      },
+      "latency_ms": 0.0021286,
+      "object_size": 1024,
+      "op": "sha3",
+      "ops_per_sec": 469792.351780513,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.4810673682232453,
+      "total_ms": {
+        "max": 0.024642,
+        "mean": 0.022354666666666665,
+        "median": 0.021286,
+        "min": 0.021136,
+        "n": 3,
+        "stddev": 0.0019823080823457634
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.058022,
+        "mean": 0.02958833333333333,
+        "median": 0.016086,
+        "min": 0.014657,
+        "n": 3,
+        "stddev": 0.024634641469551233
+      },
+      "latency_ms": 0.0016188,
+      "object_size": 1024,
+      "op": "sha3",
+      "ops_per_sec": 617741.5369409438,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.6325673338275265,
+      "total_ms": {
+        "max": 0.058137,
+        "mean": 0.029690666666666667,
+        "median": 0.016188,
+        "min": 0.014747,
+        "n": 3,
+        "stddev": 0.02464578118732156
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 1024,
+      "op": "sha3",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 2.468186,
+        "mean": 2.253934666666667,
+        "median": 2.171405,
+        "min": 2.122213,
+        "n": 3,
+        "stddev": 0.1871702128874501
+      },
+      "latency_ms": 0.002171647,
+      "object_size": 1024,
+      "op": "sha3",
+      "ops_per_sec": 460479.99513733125,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.4715315150206272,
+      "total_ms": {
+        "max": 2.468599,
+        "mean": 2.2541883333333335,
+        "median": 2.171647,
+        "min": 2.122319,
+        "n": 3,
+        "stddev": 0.18731594534724844
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.488984,
+        "mean": 0.4787506666666667,
+        "median": 0.47587,
+        "min": 0.471398,
+        "n": 3,
+        "stddev": 0.009140050838662395
+      },
+      "latency_ms": 0.00047598299999999997,
+      "object_size": 1024,
+      "op": "sha3",
+      "ops_per_sec": 2100915.368826198,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 2.1513373376780267,
+      "total_ms": {
+        "max": 0.489467,
+        "mean": 0.4790213333333333,
+        "median": 0.475983,
+        "min": 0.471614,
+        "n": 3,
+        "stddev": 0.009306234702248454
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 1024,
+      "op": "sha3",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 1.116872,
+        "mean": 1.115232,
+        "median": 1.115311,
+        "min": 1.113513,
+        "n": 3,
+        "stddev": 0.0016808929174698132
+      },
+      "latency_ms": 0.1115403,
+      "object_size": 65536,
+      "op": "sha3",
+      "ops_per_sec": 8965.369467358436,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.5875544534128024,
+      "total_ms": {
+        "max": 1.116949,
+        "mean": 1.1153136666666665,
+        "median": 1.115403,
+        "min": 1.113589,
+        "n": 3,
+        "stddev": 0.0016817804058001688
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.4843,
+        "mean": 0.4467696666666667,
+        "median": 0.433309,
+        "min": 0.4227,
+        "n": 3,
+        "stddev": 0.032932235884211285
+      },
+      "latency_ms": 0.0433529,
+      "object_size": 65536,
+      "op": "sha3",
+      "ops_per_sec": 23066.50766154052,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 1.5116866461067195,
+      "total_ms": {
+        "max": 0.484423,
+        "mean": 0.4469323333333333,
+        "median": 0.433529,
+        "min": 0.422845,
+        "n": 3,
+        "stddev": 0.03290439984763941
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 65536,
+      "op": "sha3",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 107.737433,
+        "mean": 107.31568066666667,
+        "median": 107.455568,
+        "min": 106.754041,
+        "n": 3,
+        "stddev": 0.5064003415641927
+      },
+      "latency_ms": 0.10745728099999999,
+      "object_size": 65536,
+      "op": "sha3",
+      "ops_per_sec": 9306.023665348466,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.6098795669322771,
+      "total_ms": {
+        "max": 107.738959,
+        "mean": 107.31729033333333,
+        "median": 107.457281,
+        "min": 106.755631,
+        "n": 3,
+        "stddev": 0.5063906880673592
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 23.251605,
+        "mean": 22.288156999999998,
+        "median": 22.773313,
+        "min": 20.839553,
+        "n": 3,
+        "stddev": 1.2771182290328504
+      },
+      "latency_ms": 0.02277412,
+      "object_size": 65536,
+      "op": "sha3",
+      "ops_per_sec": 43909.49024594584,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 2.8776523527583064,
+      "total_ms": {
+        "max": 23.252445,
+        "mean": 22.28896333333334,
+        "median": 22.77412,
+        "min": 20.840325,
+        "n": 3,
+        "stddev": 1.2771505263704568
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 65536,
+      "op": "sha3",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.027465,
+        "mean": 0.027394,
+        "median": 0.027436000000000002,
+        "min": 0.027281,
+        "n": 3,
+        "stddev": 9.89292676612948e-05
+      },
+      "latency_ms": 0.0027493,
+      "object_size": 1024,
+      "op": "merkle_build",
+      "ops_per_sec": 363728.9491870658,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.3724584439675554,
+      "total_ms": {
+        "max": 0.02755,
+        "mean": 0.027460666666666664,
+        "median": 0.027493,
+        "min": 0.027339,
+        "n": 3,
+        "stddev": 0.00010915279810125635
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.125556,
+        "mean": 0.073662,
+        "median": 0.067995,
+        "min": 0.027435,
+        "n": 3,
+        "stddev": 0.049305363065289355
+      },
+      "latency_ms": 0.006814499999999999,
+      "object_size": 1024,
+      "op": "merkle_build",
+      "ops_per_sec": 146745.90945777387,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.15026781128476044,
+      "total_ms": {
+        "max": 0.125774,
+        "mean": 0.07384966666666666,
+        "median": 0.068145,
+        "min": 0.02763,
+        "n": 3,
+        "stddev": 0.04932006285816486
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 1024,
+      "op": "merkle_build",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 2.628599,
+        "mean": 2.5436046666666665,
+        "median": 2.530289,
+        "min": 2.471926,
+        "n": 3,
+        "stddev": 0.07918072660902614
+      },
+      "latency_ms": 0.0025304150000000003,
+      "object_size": 1024,
+      "op": "merkle_build",
+      "ops_per_sec": 395192.0929966033,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.4046767032285218,
+      "total_ms": {
+        "max": 2.628957,
+        "mean": 2.5438080000000003,
+        "median": 2.530415,
+        "min": 2.472052,
+        "n": 3,
+        "stddev": 0.07930525892398313
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 1.149499,
+        "mean": 1.083359,
+        "median": 1.056208,
+        "min": 1.04437,
+        "n": 3,
+        "stddev": 0.057583932316228645
+      },
+      "latency_ms": 0.00105634,
+      "object_size": 1024,
+      "op": "merkle_build",
+      "ops_per_sec": 946664.8995588542,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.9693848571482667,
+      "total_ms": {
+        "max": 1.149632,
+        "mean": 1.083501,
+        "median": 1.05634,
+        "min": 1.044531,
+        "n": 3,
+        "stddev": 0.057574690541938596
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 1024,
+      "op": "merkle_build",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 1.10616,
+        "mean": 1.0782933333333333,
+        "median": 1.075864,
+        "min": 1.052856,
+        "n": 3,
+        "stddev": 0.0267349088147563
+      },
+      "latency_ms": 0.10759579999999999,
+      "object_size": 65536,
+      "op": "merkle_build",
+      "ops_per_sec": 9294.04307603085,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.6090944070307578,
+      "total_ms": {
+        "max": 1.106278,
+        "mean": 1.078401,
+        "median": 1.075958,
+        "min": 1.052967,
+        "n": 3,
+        "stddev": 0.02673933183533207
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.45262399999999997,
+        "mean": 0.39366999999999996,
+        "median": 0.410371,
+        "min": 0.318015,
+        "n": 3,
+        "stddev": 0.06884103624292708
+      },
+      "latency_ms": 0.0410839,
+      "object_size": 65536,
+      "op": "merkle_build",
+      "ops_per_sec": 24340.435060936277,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 1.5951747521535198,
+      "total_ms": {
+        "max": 0.452964,
+        "mean": 0.39405599999999996,
+        "median": 0.410839,
+        "min": 0.318365,
+        "n": 3,
+        "stddev": 0.06885110396355311
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 65536,
+      "op": "merkle_build",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 110.83091999999999,
+        "mean": 110.34629166666666,
+        "median": 110.707027,
+        "min": 109.500928,
+        "n": 3,
+        "stddev": 0.7347225092184985
+      },
+      "latency_ms": 0.110709283,
+      "object_size": 65536,
+      "op": "merkle_build",
+      "ops_per_sec": 9032.666212823364,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.5919648129235919,
+      "total_ms": {
+        "max": 110.83269,
+        "mean": 110.348251,
+        "median": 110.709283,
+        "min": 109.50278,
+        "n": 3,
+        "stddev": 0.7347946861491299
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 20.909177999999997,
+        "mean": 20.637281333333334,
+        "median": 20.748308,
+        "min": 20.254358,
+        "n": 3,
+        "stddev": 0.3412367193508529
+      },
+      "latency_ms": 0.020749507,
+      "object_size": 65536,
+      "op": "merkle_build",
+      "ops_per_sec": 48193.91612533252,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 3.158436487189792,
+      "total_ms": {
+        "max": 20.910431,
+        "mean": 20.638532333333334,
+        "median": 20.749507,
+        "min": 20.255659,
+        "n": 3,
+        "stddev": 0.34120100450809443
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 65536,
+      "op": "merkle_build",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.020109,
+        "mean": 0.02003466666666667,
+        "median": 0.020022,
+        "min": 0.019973,
+        "n": 3,
+        "stddev": 6.88791211713181e-05
+      },
+      "latency_ms": 0.0020091,
+      "object_size": 0,
+      "op": "merkle_verify",
+      "ops_per_sec": 497735.3043651386,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.020143,
+        "mean": 0.020080333333333335,
+        "median": 0.020091,
+        "min": 0.020007,
+        "n": 3,
+        "stddev": 6.862458257310849e-05
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.139764,
+        "mean": 0.09872633333333332,
+        "median": 0.130854,
+        "min": 0.025561,
+        "n": 3,
+        "stddev": 0.06351945785610369
+      },
+      "latency_ms": 0.013092999999999999,
+      "object_size": 0,
+      "op": "merkle_verify",
+      "ops_per_sec": 76376.68983426258,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.139912,
+        "mean": 0.09884566666666667,
+        "median": 0.13093,
+        "min": 0.025695,
+        "n": 3,
+        "stddev": 0.06350932298752156
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 10,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "merkle_verify",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 5.22477,
+        "mean": 5.0814243333333335,
+        "median": 5.012259,
+        "min": 5.007244,
+        "n": 3,
+        "stddev": 0.12416631052879588
+      },
+      "latency_ms": 0.005012361,
+      "object_size": 0,
+      "op": "merkle_verify",
+      "ops_per_sec": 199506.77934011538,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 5.224894,
+        "mean": 5.081535333333334,
+        "median": 5.012361,
+        "min": 5.007351,
+        "n": 3,
+        "stddev": 0.12417751610631174
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 3.7405,
+        "mean": 3.720158,
+        "median": 3.736895,
+        "min": 3.683079,
+        "n": 3,
+        "stddev": 0.032161905835941876
+      },
+      "latency_ms": 0.003737352,
+      "object_size": 0,
+      "op": "merkle_verify",
+      "ops_per_sec": 267569.1238074444,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 3.741057,
+        "mean": 3.7206050000000004,
+        "median": 3.737352,
+        "min": 3.683406,
+        "n": 3,
+        "stddev": 0.03226849790430281
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1000,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "merkle_verify",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.012654,
+        "mean": 0.012068666666666667,
+        "median": 0.011812,
+        "min": 0.01174,
+        "n": 3,
+        "stddev": 0.000508190253087693
+      },
+      "latency_ms": 0.011852,
+      "object_size": 0,
+      "op": "mlkem_keygen",
+      "ops_per_sec": 84373.94532568344,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.012792,
+        "mean": 0.012142666666666664,
+        "median": 0.011852,
+        "min": 0.011784,
+        "n": 3,
+        "stddev": 0.0005633660739992544
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.011635,
+        "mean": 0.011598999999999998,
+        "median": 0.0116,
+        "min": 0.011562,
+        "n": 3,
+        "stddev": 3.651027252705744e-05
+      },
+      "latency_ms": 0.01164,
+      "object_size": 0,
+      "op": "mlkem_keygen",
+      "ops_per_sec": 85910.65292096221,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.011678,
+        "mean": 0.011640333333333334,
+        "median": 0.01164,
+        "min": 0.011603,
+        "n": 3,
+        "stddev": 3.750111109465004e-05
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mlkem_keygen",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 1.06311,
+        "mean": 1.0352536666666667,
+        "median": 1.02395,
+        "min": 1.018701,
+        "n": 3,
+        "stddev": 0.024266633065452917
+      },
+      "latency_ms": 0.010242039999999999,
+      "object_size": 0,
+      "op": "mlkem_keygen",
+      "ops_per_sec": 97636.79891896537,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 1.063282,
+        "mean": 1.0354513333333333,
+        "median": 1.024204,
+        "min": 1.018868,
+        "n": 3,
+        "stddev": 0.024249283068440073
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.293259,
+        "mean": 0.25626,
+        "median": 0.244212,
+        "min": 0.231309,
+        "n": 3,
+        "stddev": 0.03268510904066254
+      },
+      "latency_ms": 0.00244326,
+      "object_size": 0,
+      "op": "mlkem_keygen",
+      "ops_per_sec": 409289.2283260889,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.293465,
+        "mean": 0.25640633333333335,
+        "median": 0.244326,
+        "min": 0.231428,
+        "n": 3,
+        "stddev": 0.03273527428223769
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mlkem_keygen",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.011444,
+        "mean": 0.011289666666666665,
+        "median": 0.011263,
+        "min": 0.011162,
+        "n": 3,
+        "stddev": 0.00014287873646324427
+      },
+      "latency_ms": 0.011304,
+      "object_size": 0,
+      "op": "mlkem_encaps",
+      "ops_per_sec": 88464.26043878273,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.011524,
+        "mean": 0.011342999999999999,
+        "median": 0.011304,
+        "min": 0.011201,
+        "n": 3,
+        "stddev": 0.00016499393928262954
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.011152,
+        "mean": 0.011117333333333333,
+        "median": 0.011113,
+        "min": 0.011087,
+        "n": 3,
+        "stddev": 3.271594921950702e-05
+      },
+      "latency_ms": 0.011149,
+      "object_size": 0,
+      "op": "mlkem_encaps",
+      "ops_per_sec": 89694.1429724639,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.011191,
+        "mean": 0.011154333333333334,
+        "median": 0.011149,
+        "min": 0.011123,
+        "n": 3,
+        "stddev": 3.431229128655424e-05
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mlkem_encaps",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 1.142048,
+        "mean": 1.1192643333333334,
+        "median": 1.13633,
+        "min": 1.079415,
+        "n": 3,
+        "stddev": 0.034628758371234344
+      },
+      "latency_ms": 0.01136379,
+      "object_size": 0,
+      "op": "mlkem_encaps",
+      "ops_per_sec": 87998.81025608533,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 1.142255,
+        "mean": 1.1193706666666665,
+        "median": 1.136379,
+        "min": 1.079478,
+        "n": 3,
+        "stddev": 0.03467276285982034
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.31057,
+        "mean": 0.301777,
+        "median": 0.307286,
+        "min": 0.287475,
+        "n": 3,
+        "stddev": 0.012494261362721703
+      },
+      "latency_ms": 0.00307496,
+      "object_size": 0,
+      "op": "mlkem_encaps",
+      "ops_per_sec": 325207.4823737545,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.310709,
+        "mean": 0.3019213333333333,
+        "median": 0.307496,
+        "min": 0.287559,
+        "n": 3,
+        "stddev": 0.012541463484511418
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mlkem_encaps",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.012456,
+        "mean": 0.012402000000000002,
+        "median": 0.012409,
+        "min": 0.012341,
+        "n": 3,
+        "stddev": 5.7818682101895326e-05
+      },
+      "latency_ms": 0.012441,
+      "object_size": 0,
+      "op": "mlkem_decaps",
+      "ops_per_sec": 80379.3907242183,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.01251,
+        "mean": 0.012441333333333334,
+        "median": 0.012441,
+        "min": 0.012373,
+        "n": 3,
+        "stddev": 6.850060826980539e-05
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.01234,
+        "mean": 0.012339000000000001,
+        "median": 0.01234,
+        "min": 0.012337,
+        "n": 3,
+        "stddev": 1.7320508075686065e-06
+      },
+      "latency_ms": 0.012372,
+      "object_size": 0,
+      "op": "mlkem_decaps",
+      "ops_per_sec": 80827.67539605561,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.012373,
+        "mean": 0.012372000000000001,
+        "median": 0.012372,
+        "min": 0.012371,
+        "n": 3,
+        "stddev": 1.0000000000001327e-06
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mlkem_decaps",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 1.285166,
+        "mean": 1.2654606666666668,
+        "median": 1.26562,
+        "min": 1.245596,
+        "n": 3,
+        "stddev": 0.019785481175178313
+      },
+      "latency_ms": 0.01265668,
+      "object_size": 0,
+      "op": "mlkem_decaps",
+      "ops_per_sec": 79009.66130138394,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 1.285252,
+        "mean": 1.265521,
+        "median": 1.265668,
+        "min": 1.245643,
+        "n": 3,
+        "stddev": 0.019804909164144128
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.34353,
+        "mean": 0.30716666666666664,
+        "median": 0.296263,
+        "min": 0.281707,
+        "n": 3,
+        "stddev": 0.03232163814433504
+      },
+      "latency_ms": 0.00296392,
+      "object_size": 0,
+      "op": "mlkem_decaps",
+      "ops_per_sec": 337391.022699668,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.3436,
+        "mean": 0.3072576666666667,
+        "median": 0.296392,
+        "min": 0.281781,
+        "n": 3,
+        "stddev": 0.032310125724505215
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mlkem_decaps",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.036062,
+        "mean": 0.035656,
+        "median": 0.03548,
+        "min": 0.035426,
+        "n": 3,
+        "stddev": 0.00035264146097700895
+      },
+      "latency_ms": 0.035525,
+      "object_size": 0,
+      "op": "mldsa_keygen",
+      "ops_per_sec": 28149.190710767063,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.036151,
+        "mean": 0.035714666666666665,
+        "median": 0.035525,
+        "min": 0.035468,
+        "n": 3,
+        "stddev": 0.00037894898513300495
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.036931,
+        "mean": 0.035738,
+        "median": 0.035201,
+        "min": 0.035082,
+        "n": 3,
+        "stddev": 0.0010348801863017745
+      },
+      "latency_ms": 0.035243,
+      "object_size": 0,
+      "op": "mldsa_keygen",
+      "ops_per_sec": 28374.42896461709,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.036973,
+        "mean": 0.03577966666666666,
+        "median": 0.035243,
+        "min": 0.035123,
+        "n": 3,
+        "stddev": 0.0010351972436851505
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mldsa_keygen",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 3.380432,
+        "mean": 3.362766,
+        "median": 3.369964,
+        "min": 3.337902,
+        "n": 3,
+        "stddev": 0.022159842688972184
+      },
+      "latency_ms": 0.03370177,
+      "object_size": 0,
+      "op": "mldsa_keygen",
+      "ops_per_sec": 29672.032062410966,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 3.380554,
+        "mean": 3.362901666666667,
+        "median": 3.370177,
+        "min": 3.337974,
+        "n": 3,
+        "stddev": 0.022202746594359318
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.924178,
+        "mean": 0.8287946666666667,
+        "median": 0.845003,
+        "min": 0.717203,
+        "n": 3,
+        "stddev": 0.10443512439947268
+      },
+      "latency_ms": 0.0084524,
+      "object_size": 0,
+      "op": "mldsa_keygen",
+      "ops_per_sec": 118309.59254176328,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.924392,
+        "mean": 0.8289873333333334,
+        "median": 0.84524,
+        "min": 0.71733,
+        "n": 3,
+        "stddev": 0.10448339505076072
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 0,
+      "op": "mldsa_keygen",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.129934,
+        "mean": 0.11100033333333333,
+        "median": 0.119221,
+        "min": 0.083846,
+        "n": 3,
+        "stddev": 0.024118674431513294
+      },
+      "latency_ms": 0.119317,
+      "object_size": 168,
+      "op": "mldsa_sign",
+      "ops_per_sec": 8381.035393112465,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.12999,
+        "mean": 0.11106833333333332,
+        "median": 0.119317,
+        "min": 0.083898,
+        "n": 3,
+        "stddev": 0.024127753569972762
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.097822,
+        "mean": 0.065761,
+        "median": 0.051993,
+        "min": 0.047468,
+        "n": 3,
+        "stddev": 0.027857668549252288
+      },
+      "latency_ms": 0.052041,
+      "object_size": 168,
+      "op": "mldsa_sign",
+      "ops_per_sec": 19215.618454679963,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.09787,
+        "mean": 0.06581,
+        "median": 0.052041,
+        "min": 0.047519,
+        "n": 3,
+        "stddev": 0.027856683596580552
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 168,
+      "op": "mldsa_sign",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 9.100339,
+        "mean": 8.892278,
+        "median": 8.92708,
+        "min": 8.649415,
+        "n": 3,
+        "stddev": 0.2274675753750414
+      },
+      "latency_ms": 0.08927154,
+      "object_size": 168,
+      "op": "mldsa_sign",
+      "ops_per_sec": 11201.778304709429,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 9.100418,
+        "mean": 8.892355666666667,
+        "median": 8.927154,
+        "min": 8.649495,
+        "n": 3,
+        "stddev": 0.22746665906091212
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 2.138727,
+        "mean": 2.028938666666667,
+        "median": 1.9871,
+        "min": 1.960989,
+        "n": 3,
+        "stddev": 0.0959716347799354
+      },
+      "latency_ms": 0.01987306,
+      "object_size": 168,
+      "op": "mldsa_sign",
+      "ops_per_sec": 50319.377086367174,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 2.138956,
+        "mean": 2.029166666666667,
+        "median": 1.987306,
+        "min": 1.961238,
+        "n": 3,
+        "stddev": 0.0959695703925641
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 168,
+      "op": "mldsa_sign",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.032721,
+        "mean": 0.03261566666666667,
+        "median": 0.032605,
+        "min": 0.032521,
+        "n": 3,
+        "stddev": 0.00010042576030746891
+      },
+      "latency_ms": 0.032642,
+      "object_size": 168,
+      "op": "mldsa_verify",
+      "ops_per_sec": 30635.377734207465,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.032792,
+        "mean": 0.032668666666666665,
+        "median": 0.032642,
+        "min": 0.032572,
+        "n": 3,
+        "stddev": 0.00011239810200058505
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0326,
+        "mean": 0.032531,
+        "median": 0.03252,
+        "min": 0.032473,
+        "n": 3,
+        "stddev": 6.421059102671213e-05
+      },
+      "latency_ms": 0.032567,
+      "object_size": 168,
+      "op": "mldsa_verify",
+      "ops_per_sec": 30705.929314950714,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.032646,
+        "mean": 0.03257533333333334,
+        "median": 0.032567,
+        "min": 0.032513,
+        "n": 3,
+        "stddev": 6.689045771508391e-05
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 1,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 168,
+      "op": "mldsa_verify",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 3.72119,
+        "mean": 3.4548946666666667,
+        "median": 3.351793,
+        "min": 3.291701,
+        "n": 3,
+        "stddev": 0.23256755047154218
+      },
+      "latency_ms": 0.03351981,
+      "object_size": 168,
+      "op": "mldsa_verify",
+      "ops_per_sec": 29833.104662586094,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 3.721485,
+        "mean": 3.455149333333333,
+        "median": 3.351981,
+        "min": 3.291982,
+        "n": 3,
+        "stddev": 0.23259618548964497
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "backend": "cpu-mt",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.780861,
+        "mean": 0.7017126666666668,
+        "median": 0.690069,
+        "min": 0.634208,
+        "n": 3,
+        "stddev": 0.07401659835694516
+      },
+      "latency_ms": 0.00690202,
+      "object_size": 168,
+      "op": "mldsa_verify",
+      "ops_per_sec": 144885.12058788587,
+      "skip_reason": "",
+      "skipped": false,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 3,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.781074,
+        "mean": 0.7019546666666668,
+        "median": 0.690202,
+        "min": 0.634588,
+        "n": 3,
+        "stddev": 0.07394681148861885
+      }
+    },
+    {
+      "alloc_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "backend": "gpu",
+      "count": 100,
+      "d2h_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "entropy_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "h2d_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "kernel_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "latency_ms": 0.0,
+      "object_size": 168,
+      "op": "mldsa_verify",
+      "ops_per_sec": 0.0,
+      "skip_reason": "backend unavailable: gpu backend: not compiled in (build with VAULT_ENABLE_CUDA=ON)",
+      "skipped": true,
+      "sync_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      },
+      "throughput_gbps": 0.0,
+      "total_ms": {
+        "max": 0.0,
+        "mean": 0.0,
+        "median": 0.0,
+        "min": 0.0,
+        "n": 0,
+        "stddev": 0.0
+      }
+    }
+  ],
+  "system": {
+    "build_type": "Release",
+    "compiler": "13.4.0",
+    "compiler_flags": " -O3 -DNDEBUG",
+    "cpu_model": "12th Gen Intel(R) Core(TM) i5-12450H",
+    "cpu_threads": 12,
+    "cuda_driver_version": "",
+    "cuda_flags": "",
+    "cuda_runtime_version": "",
+    "cupqc_version": "",
+    "git_commit": "59ab893816d9-dirty",
+    "gpu_arch": "",
+    "gpu_memory": "",
+    "gpu_model": "",
+    "hostname": "ogkisque",
+    "liboqs_version": "0.16.0",
+    "openssl_version": "OpenSSL 3.0.2 15 Mar 2022",
+    "os": "Linux 6.8.0-138-generic x86_64",
+    "timestamp_utc": "2026-10-16T13:51:17Z"
+  }
+}

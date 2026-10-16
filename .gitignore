@@ -9,3 +9,4 @@ bench/results/*
 # локальные тестовые хранилища
 /vault/
 /trusted/
+.pytest_cache/
