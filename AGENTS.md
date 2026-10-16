@@ -21,7 +21,7 @@
 | Этап | Документ | Статус |
 |---|---|---|
 | 0. Каркас: структура, интерфейсы, CMake, планы | — | ✅ готово (2026-10-16) |
-| 1. Минимальное хранилище (AES-GCM/KW, ML-KEM, HKDF, CLI) | `docs/stages/01_minimal_vault.md` | ☐ не начат |
+| 1. Минимальное хранилище (AES-GCM/KW, ML-KEM, HKDF, CLI) | `docs/stages/01_minimal_vault.md` | ✅ готово (2026-10-16) |
 | 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ☐ |
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ☐ |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ☐ |
@@ -35,7 +35,7 @@
 
 - **C++20**, CMake ≥ 3.22, GCC 13 (локально). CUDA-код — C++17 (`nvcc`).
 - **OpenSSL ≥ 3.0**: AES-GCM, AES-KW, HKDF(SHA3-256), SHA3, RAND. Локально нужно поставить `libssl-dev`.
-- **liboqs** (FetchContent, tag в `cmake/Dependencies.cmake`): ML-KEM-768 и ML-DSA-65 на CPU.
+- **liboqs 0.16.0** (FetchContent, tag в `cmake/Dependencies.cmake`): ML-KEM-768 и ML-DSA-65 на CPU.
 - **CLI11** — CLI; **GoogleTest** — тесты; позже **nlohmann/json** — конфиги benchmark'а.
 - **CUDA 12 + cuPQC SDK** — только на GPU-машине (`VAULT_ENABLE_CUDA=ON`).
 - Python (pandas, matplotlib) — анализ результатов.
@@ -89,9 +89,9 @@ include/vault/             ПУБЛИЧНЫЕ ИНТЕРФЕЙСЫ (готовы
   vault/                   key_hierarchy, object_codec, state_verifier, commit, vault (фасад)
   bench/                   stats, system_info, benchmark
   gpu/                     фабрики GPU backend'ов
-src/                       реализации (пусто), раскладка повторяет include/; src/cli/commands.hpp — интерфейс CLI
+src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ и bench/ пока пусты)
 cuda/                      GPU-реализации (.cu), только при VAULT_ENABLE_CUDA
-tests/                     header_check.cpp (работает); unit/ integration/ tamper/ crash/ gpu/ vectors/
+tests/                     header_check.cpp; unit/ integration/ tamper/ (есть, 43 теста); crash/ gpu/ (пусто); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
 scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, run_bench.sh
 docs/                      format_v1.md, gpu_machine.md, stages/01..07
@@ -100,12 +100,9 @@ docs/                      format_v1.md, gpu_machine.md, stages/01..07
 ## Сборка
 
 ```bash
-# сейчас (только проверка интерфейсов, зависимостей не нужно):
-cmake -S . -B build/cpu && cmake --build build/cpu        # собирает vault_header_check
-
-# с появлением src/*.cpp:
-sudo apt install libssl-dev
-./scripts/build_cpu.sh                                    # + ctest
+sudo apt install libssl-dev        # OpenSSL >= 3.0 (liboqs 0.16.0, CLI11, GoogleTest тянутся через FetchContent)
+./scripts/build_cpu.sh             # сборка + ctest (первая сборка ~2 мин из-за liboqs)
+cmake -S . -B build/asan -DVAULT_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug   # ASan+UBSan
 CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машине
 ```
 
@@ -123,3 +120,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | Дата | Что сделано |
 |---|---|
 | 2026-10-16 | Каркас проекта: структура каталогов, все публичные заголовки (`include/vault/**`, компилируются через `vault_header_check`), CMake с опциональной CUDA-частью, скрипты сборки и benchmark'а, конфиги benchmark'а, заглушка анализа, `docs/format_v1.md` с решениями по неоднозначностям, планы этапов 1–7. Реализаций нет. |
+| 2026-10-16 | Этап 1 завершён: `vault init/add/list/extract/remove/verify` работают, 43 теста проходят (в т.ч. под ASan/UBSan). Подробности и отклонения — в `docs/stages/01_minimal_vault.md`. Репозиторий — `CryptoProject/` (коммиты только локально, без push). |

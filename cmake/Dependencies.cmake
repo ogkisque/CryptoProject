@@ -1,6 +1,6 @@
 # Зависимости CPU-части.
 #   OpenSSL >= 3.0 : AES-256-GCM, AES-256-KW, HKDF(SHA3-256), SHA3-256, RAND_bytes
-#   liboqs         : ML-KEM-768, ML-DSA-65 (нужны *_derand и sign_with_ctx_str -> >= 0.12)
+#   liboqs         : ML-KEM-768, ML-DSA-65 (нужны encaps_derand (появился после 0.14) и sign_with_ctx_str -> 0.16.0)
 #   CLI11          : разбор аргументов
 #   GoogleTest     : тесты
 include(FetchContent)
@@ -18,7 +18,7 @@ if(NOT liboqs_FOUND)
   set(OQS_MINIMAL_BUILD "KEM_ml_kem_768;SIG_ml_dsa_65" CACHE STRING "" FORCE)
   FetchContent_Declare(liboqs
     GIT_REPOSITORY https://github.com/open-quantum-safe/liboqs.git
-    GIT_TAG        0.14.0)  # TODO(M1): проверить наличие OQS_SIG_sign_with_ctx_str и *_derand
+    GIT_TAG        0.16.0)  # есть OQS_KEM_encaps_derand / keypair_derand и OQS_SIG_sign_with_ctx_str
   FetchContent_MakeAvailable(liboqs)
   if(NOT TARGET OQS::oqs)
     add_library(OQS::oqs ALIAS oqs)
