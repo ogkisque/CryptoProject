@@ -167,3 +167,10 @@ Decaps выполняется только после того, как прош�
 | Q2 | Нужен ли `vault gc` отдельной командой | да, `vault gc`; GC никогда не запускается автоматически внутри commit |
 | Q3 | Поддерживает ли cuPQC ML-DSA context string и derand API | проверить на GPU-машине (M6). Если нет — собрать `M'` вручную и вызвать internal sign; для KAT использовать derand |
 | Q4 | Большие файлы (> RAM) | в прототипе файл целиком в памяти. Потоковый GCM всё равно потребовал бы буферизации до проверки tag |
+
+## 13. Уточнения, принятые при реализации этапа 2
+
+* **Листья считаются по сырым байтам файла объекта**: строгий разбор `EncryptedFileV1` (без trailing data) гарантирует, что они совпадают с `CanonicalEncode(obj)`.
+* **Привязка `VerifyStep` к ошибкам формата Manifest:** размер `manifest.bin` ≠ 168 → `ManifestParse`; `format_version`/`crypto_suite_id` не поддерживаются или не равны trusted → `FormatVersion`/`CryptoSuite`; размер `manifest.sig` ≠ 3309 → `Signature`; нет `manifest.bin`/`manifest.sig` → `LoadManifest`; размер `kem.ct` ≠ 1088 → `LoadSnapshot`.
+* **Детерминированный ML-DSA (S-1)** реализован через внутренние точки mldsa-native в liboqs (см. журнал этапа 2). Подпись при `rnd = 0^32` — стандартная pure ML-DSA, проверяется публичным `OQS_SIG_verify_with_ctx_str`.
+* **Merkle-proof** содержит `leaf_index`, `leaf_count` и шаги; форма пути выводится из первых двух полей и сверяется с шагами.

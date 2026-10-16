@@ -60,6 +60,34 @@ TEST_F(CliTest, VerificationFailureGivesCode2) {
     EXPECT_NE(read_text("err.txt").find("INVALID: LoadSnapshot"), std::string::npos);
 }
 
+TEST_F(CliTest, VerifyPrintsValidAndVerboseDetails) {
+    ASSERT_EQ(run("init"), 0);
+    spit(root / "in.txt", Bytes{'x'});
+    ASSERT_EQ(run("add in.txt"), 0);
+    ASSERT_EQ(run("verify"), 0);
+    EXPECT_EQ(read_text("out.txt"), "VALID\n");
+    ASSERT_EQ(run("-v verify"), 0);
+    EXPECT_NE(read_text("out.txt").find("merkle root"), std::string::npos);
+    EXPECT_NE(read_text("out.txt").find("VALID"), std::string::npos);
+}
+
+TEST_F(CliTest, EveryCommandRefusesTamperedState) {
+    ASSERT_EQ(run("init"), 0);
+    spit(root / "in.txt", Bytes{'x'});
+    ASSERT_EQ(run("add in.txt"), 0);
+    std::string id = read_text("out.txt").substr(0, 32);
+    Bytes sig = slurp(vault_dir / "manifest.sig");
+    sig[0] ^= 1;
+    spit(vault_dir / "manifest.sig", sig);
+    for (const char* cmd : {"verify", "list", "list --names", "add in.txt", "extract ID -o r.bin", "remove ID", "gc"}) {
+        std::string c = cmd;
+        if (auto pos = c.find("ID"); pos != std::string::npos) c.replace(pos, 2, id);
+        EXPECT_EQ(run(c), 2) << cmd;
+        EXPECT_NE(read_text("err.txt").find("INVALID: Signature"), std::string::npos) << cmd;
+    }
+    EXPECT_FALSE(std::filesystem::exists(root / "r.bin"));
+}
+
 TEST_F(CliTest, ExtractSanitizesStoredFilename) {
     ASSERT_EQ(run("init"), 0);
     FileId id;

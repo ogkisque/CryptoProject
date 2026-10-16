@@ -22,7 +22,7 @@
 |---|---|---|
 | 0. Каркас: структура, интерфейсы, CMake, планы | — | ✅ готово (2026-10-16) |
 | 1. Минимальное хранилище (AES-GCM/KW, ML-KEM, HKDF, CLI) | `docs/stages/01_minimal_vault.md` | ✅ готово (2026-10-16) |
-| 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ☐ |
+| 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ✅ готово (2026-10-16) |
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ☐ |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ☐ |
 | 5. GPU SHA3 / Merkle (на GPU-машине) | `docs/stages/05_gpu_sha3_merkle.md` | ☐ |
@@ -89,7 +89,7 @@ include/vault/             ПУБЛИЧНЫЕ ИНТЕРФЕЙСЫ (готовы
   vault/                   key_hierarchy, object_codec, state_verifier, commit, vault (фасад)
   bench/                   stats, system_info, benchmark
   gpu/                     фабрики GPU backend'ов
-src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ и bench/ пока пусты)
+src/                       реализации, раскладка повторяет include/ (этап 1: common, encoding, crypto/cpu, storage, vault, cli; merkle/ добавлен на этапе 2; bench/ пока пуст)
 cuda/                      GPU-реализации (.cu), только при VAULT_ENABLE_CUDA
 tests/                     header_check.cpp; unit/ integration/ tamper/ (есть, 49 тестов); crash/ gpu/ (пусто); vectors/
 bench/                     configs/{quick,full}.json, analysis/analyze.py (заглушка), results/
@@ -122,3 +122,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Каркас проекта: структура каталогов, все публичные заголовки (`include/vault/**`, компилируются через `vault_header_check`), CMake с опциональной CUDA-частью, скрипты сборки и benchmark'а, конфиги benchmark'а, заглушка анализа, `docs/format_v1.md` с решениями по неоднозначностям, планы этапов 1–7. Реализаций нет. |
 | 2026-10-16 | Этап 1 завершён: `vault init/add/list/extract/remove/verify` работают, 43 теста проходят (в т.ч. под ASan/UBSan). Подробности и отклонения — в `docs/stages/01_minimal_vault.md`. Репозиторий — `CryptoProject/` (коммиты только локально, без push). |
 | 2026-10-16 | Ревью этапа 1: исправлено 8 проблем (tmp-файлы в objects/, длина kem.ct, частичный plaintext при ошибке записи в extract, GCM ≥ 2 GiB и др.), добавлены CLI-тесты, всего 49 тестов. Таблица — в `docs/stages/01_minimal_vault.md`. |
+| 2026-10-16 | Этап 2 завершён: Merkle (reference, proofs), ML-DSA-65 (liboqs; derand через внутренние точки mldsa-native), подписанный Manifest, `StateVerifier` шаги 1–6 и 9–12, `vault verify` (VALID/INVALID, `-v`), тесты атак §57 с проверкой `VerifyStep`, ACVP-векторы. Подробности — `docs/stages/02_integrity_state.md`. |

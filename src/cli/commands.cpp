@@ -114,11 +114,20 @@ int cmd_list(const GlobalOptions& g, bool show_names) {
 }
 
 int cmd_verify(const GlobalOptions& g) {
-    Vault v = open_vault(g);  // open уже включает полную проверку
-    core::VerifyReport r = v.verify();
-    if (g.verbose)
-        std::cout << "objects: " << r.state.objects.size() << ", generation: " << r.state.generation << "\n";
-    std::cout << "VALID (stage 1: object structure only; Merkle/Manifest checks come in stage 2)\n";
+    // Ошибка проверки -> VerificationError -> "INVALID: <step>: <detail>", код 2 (main.cpp).
+    core::VerifyReport r = Vault::verify_state(g.paths, crypto::make_backends(g.backend));
+    if (g.verbose) {
+        std::cout << "checked: trusted state, manifest parse, versions/uuid, key ids, ML-DSA signature,\n"
+                     "         kem_ct_hash, object parse/binding, file_count, Merkle root\n"
+                  << "objects: " << r.state.objects.size() << ", generation: " << r.state.generation
+                  << ", merkle root: " << to_hex(as_view(r.state.manifest.merkle_root)) << "\n"
+                  << "phases (ms): algorithm " << r.profile[Phase::Algorithm] << ", serialization "
+                  << r.profile[Phase::Serialization] << ", filesystem " << r.profile[Phase::Filesystem]
+                  << ", memcpy " << r.profile[Phase::MemoryCopy] << "\n"
+                  << "merkle backend (ms): kernel " << r.merkle_timing.kernel_ms << ", total "
+                  << r.merkle_timing.total_ms << "\n";
+    }
+    std::cout << "VALID\n";
     return 0;
 }
 

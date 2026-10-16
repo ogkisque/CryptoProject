@@ -38,6 +38,9 @@ public:
     // vault init (§51). Ошибка, если vault_dir или trusted_dir уже существуют.
     static void init(const VaultPaths& paths, const crypto::CryptoBackends& backends);
 
+    // Только проверка состояния (`vault verify`): секретные ключи не загружаются, Decaps не вызывается.
+    static core::VerifyReport verify_state(const VaultPaths& paths, const crypto::CryptoBackends& backends);
+
     // Открывает и полностью проверяет текущее состояние (бросает VerificationError).
     static Vault open(const VaultPaths& paths, crypto::CryptoBackends backends);
 

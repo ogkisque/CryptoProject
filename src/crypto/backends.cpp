@@ -2,6 +2,7 @@
 
 #include "vault/common/error.hpp"
 #include "vault/crypto/cpu_backends.hpp"
+#include "vault/merkle/merkle.hpp"
 
 namespace vault::crypto {
 
@@ -41,7 +42,8 @@ CryptoBackends make_backends(const BackendConfig& cfg) {
     b.hash = make_cpu_hash_backend(1);
     b.kem = make_cpu_kem_backend(1);
     b.random = make_system_random();
-    // b.merkle, b.sig: появятся в этапе 2
+    b.merkle = merkle::make_reference_merkle(b.hash);
+    b.sig = make_cpu_sig_backend(1);
     return b;
 }
 
