@@ -127,13 +127,14 @@ int cmd_verify(const GlobalOptions& g) {
                   << "merkle backend (ms): kernel " << r.merkle_timing.kernel_ms << ", total "
                   << r.merkle_timing.total_ms << "\n";
     }
+    for (const std::string& w : r.warnings) std::cerr << "warning: " << w << "\n";
     std::cout << "VALID\n";
     return 0;
 }
 
 int cmd_gc(const GlobalOptions& g) {
     Vault v = open_vault(g);
-    std::cout << "removed " << v.garbage_collect() << " stale generation(s)\n";
+    std::cout << "removed " << v.garbage_collect() << " stale or incomplete generation(s)\n";
     return 0;
 }
 

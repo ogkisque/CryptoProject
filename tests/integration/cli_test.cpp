@@ -76,9 +76,9 @@ TEST_F(CliTest, EveryCommandRefusesTamperedState) {
     spit(root / "in.txt", Bytes{'x'});
     ASSERT_EQ(run("add in.txt"), 0);
     std::string id = read_text("out.txt").substr(0, 32);
-    Bytes sig = slurp(vault_dir / "manifest.sig");
+    Bytes sig = slurp(current_dir() / "manifest.sig");
     sig[0] ^= 1;
-    spit(vault_dir / "manifest.sig", sig);
+    spit(current_dir() / "manifest.sig", sig);
     for (const char* cmd : {"verify", "list", "list --names", "add in.txt", "extract ID -o r.bin", "remove ID", "gc"}) {
         std::string c = cmd;
         if (auto pos = c.find("ID"); pos != std::string::npos) c.replace(pos, 2, id);

@@ -10,6 +10,7 @@
 #include "vault/storage/fs_util.hpp"
 #include "vault/storage/storage_backend.hpp"
 #include "vault/storage/trusted_storage.hpp"
+#include "vault/vault/commit.hpp"
 #include "vault/vault/key_hierarchy.hpp"
 #include "vault/vault/object_codec.hpp"
 
@@ -17,36 +18,12 @@ namespace vault {
 
 namespace {
 
-// Единственное место выбора реализации хранилищ (этап 3: FlatStorage -> GenerationStorage).
+// Единственное место выбора реализации хранилищ.
 std::unique_ptr<storage::IStorageBackend> make_storage(const VaultPaths& p) {
-    return storage::make_flat_storage(p.vault_dir);
+    return storage::make_generation_storage(p.vault_dir);
 }
 std::unique_ptr<storage::ITrustedStorage> make_trusted(const VaultPaths& p) {
     return storage::make_file_trusted_storage(p.trusted_dir);
-}
-
-struct SignedManifest {
-    encoding::ManifestV1 manifest;
-    Bytes encoded;
-    Bytes signature;
-};
-
-// Manifest по текущему набору листьев + подпись ML-DSA-65 (hedged, §8 решение S-1).
-SignedManifest build_signed_manifest(const crypto::CryptoBackends& b, const StorageUuid& uuid, std::uint64_t generation,
-                                     std::span<const Hash256> leaves, ByteView kem_ct, ByteView kem_pk,
-                                     ByteView sig_pk, ByteView sig_sk) {
-    SignedManifest out;
-    encoding::ManifestV1& m = out.manifest;
-    m.storage_uuid = uuid;
-    m.generation = generation;
-    m.file_count = leaves.size();
-    m.merkle_root = b.merkle->root_from_leaves(leaves, nullptr);
-    m.kem_ct_hash = crypto::kem_ct_hash(*b.hash, kem_ct);
-    m.kem_key_id = crypto::kem_key_id(*b.hash, kem_pk);
-    m.sig_key_id = crypto::sig_key_id(*b.hash, sig_pk);
-    out.encoded = encoding::encode_manifest(m);
-    out.signature = b.sig->sign(sig_sk, out.encoded, label::kManifestSigContext, std::nullopt);
-    return out;
 }
 
 }  // namespace
@@ -60,18 +37,21 @@ struct Vault::Impl {
     core::VerifiedState verified;
     SecureBytes kek;  // живёт, пока открыт Vault; обнуляется деструктором
 
-    // Пересобирает и подписывает Manifest для набора листьев, пишет его, затем sync+publish.
-    void commit_manifest(storage::ISnapshotWriter& writer, std::span<const Hash256> leaves) {
-        storage::TrustedPublicKeys pub = trusted->load_public_keys();
-        if (!pub.sig_pk) throw VaultError(ErrorCode::NotFound, "trusted area has no signature public key");
-        SecureBytes sig_sk = trusted->load_sig_secret_key();
-        SignedManifest sm = build_signed_manifest(backends, trusted_state.storage_uuid, verified.generation, leaves,
-                                                  verified.kem_ct, pub.kem_pk, *pub.sig_pk, sig_sk.view());
-        writer.put_manifest(sm.encoded, sm.signature);
-        writer.sync();
-        writer.publish();
-        verified.manifest = sm.manifest;
-        verified.manifest_hash = crypto::manifest_hash(*backends.hash, sm.manifest);
+    // Транзакция (§3.3a): эксклюзивная блокировка на время «актуализация состояния -> commit».
+    // Если другой процесс успел сделать commit с момента нашей проверки (trusted state ушёл вперёд),
+    // состояние перечитывается и перепроверяется — иначе два параллельных `add` построили бы
+    // два разных поколения N+1.
+    template <typename Fn>
+    void transaction(Fn&& fn) {
+        storage::FileLock lock(paths.vault_dir / ".lock");
+        encoding::TrustedStateV1 ts = trusted->load_state();
+        if (!(ts == trusted_state)) {
+            core::StateVerifier verifier(backends, *storage, *trusted);
+            verified = std::move(verifier.verify_current().state);
+            trusted_state = trusted->load_state();
+        }
+        fn();
+        trusted_state = trusted->load_state();
     }
 
     std::vector<encoding::EncryptedFileV1>::iterator find(const FileId& id) {
@@ -93,7 +73,11 @@ void Vault::init(const VaultPaths& paths, const crypto::CryptoBackends& backends
     auto storage = make_storage(paths);
     auto trusted = make_trusted(paths);
     if (std::filesystem::exists(paths.vault_dir))
-        throw VaultError(ErrorCode::AlreadyExists, "vault directory already exists: " + paths.vault_dir.string());
+        throw VaultError(ErrorCode::AlreadyExists,
+                         "vault directory already exists: " + paths.vault_dir.string() +
+                             (std::filesystem::exists(paths.trusted_dir)
+                                  ? ""
+                                  : " (no trusted area: incomplete initialization? remove the directory and retry)"));
     if (std::filesystem::exists(paths.trusted_dir))
         throw VaultError(ErrorCode::AlreadyExists, "trusted directory already exists: " + paths.trusted_dir.string());
 
@@ -106,22 +90,26 @@ void Vault::init(const VaultPaths& paths, const crypto::CryptoBackends& backends
     // KEK на диске не хранится — обнуляется при выходе из функции.
     crypto::SigKeyPair sig = backends.sig->keygen(std::nullopt);
 
-    // Пустой Manifest (root = EMPTY_ROOT) и его подпись.
-    SignedManifest sm = build_signed_manifest(backends, ts.storage_uuid, 0, {}, km.ct_kem, kem.public_key,
-                                              sig.public_key, sig.secret_key.view());
-
-    storage->create_layout();
-    storage->write_kem_ct(km.ct_kem);
-    {
-        auto w = storage->begin_snapshot(0, std::nullopt);
-        w->put_manifest(sm.encoded, sm.signature);
-        w->sync();
-        w->publish();
+    // Порядок init: vault/ (kem.ct, поколение 0) -> доверенная область ПОСЛЕДНЕЙ. Наличие trusted
+    // state означает «init завершён». Если процесс убит посередине, остаётся vault/ без trusted/:
+    // повторный init сообщит о неполной инициализации, каталог нужно удалить вручную.
+    // При обычной ошибке (исключении) созданное откатывается.
+    try {
+        storage->create_layout();
+        storage->write_kem_ct(km.ct_kem);
+        core::CommitProtocol commit(backends, *storage, *trusted);
+        core::CommitResult gen0 = commit.commit_initial(ts.storage_uuid, km.ct_kem, kem.public_key, sig);
+        ts.trusted_generation = 0;
+        ts.trusted_manifest_hash = gen0.new_manifest_hash;
+        trusted->initialize(storage::TrustedKeys{kem.public_key, std::move(kem.secret_key), sig.public_key,
+                                                 std::move(sig.secret_key)},
+                            ts);
+    } catch (...) {
+        std::error_code ec;
+        std::filesystem::remove_all(paths.vault_dir, ec);
+        std::filesystem::remove_all(paths.trusted_dir, ec);
+        throw;
     }
-    // Доверенная область — последней: её наличие означает "init завершён".
-    trusted->initialize(storage::TrustedKeys{kem.public_key, std::move(kem.secret_key), sig.public_key,
-                                             std::move(sig.secret_key)},
-                        ts);
 }
 
 Vault Vault::open(const VaultPaths& paths, crypto::CryptoBackends backends) {
@@ -159,31 +147,16 @@ core::VerifyReport Vault::verify_state(const VaultPaths& paths, const crypto::Cr
 
 FileId Vault::add_bytes(std::string_view filename, ByteView data) {
     FileId id{};
-    do {
-        impl_->backends.random->fill(MutableByteView(id));
-    } while (std::any_of(impl_->verified.objects.begin(), impl_->verified.objects.end(),
-                         [&](const auto& o) { return o.file_id == id; }));
-
-    encoding::EncryptedFileV1 obj = core::encrypt_object(*impl_->backends.random, impl_->kek.view(),
-                                                         impl_->trusted_state.storage_uuid, id, filename, data);
-    Bytes encoded = encoding::encode_encrypted_file(obj);
-    Hash256 leaf;
-    {
-        ByteView v(encoded);
-        impl_->backends.merkle->compute_leaves(std::span<const ByteView>(&v, 1), std::span<Hash256>(&leaf, 1), nullptr);
-    }
-    auto pos = std::lower_bound(impl_->verified.objects.begin(), impl_->verified.objects.end(), id,
-                                [](const auto& o, const FileId& v) { return o.file_id < v; });
-    std::vector<Hash256> leaves = impl_->verified.leaves;
-    leaves.insert(leaves.begin() + (pos - impl_->verified.objects.begin()), leaf);
-
-    // M2: объект и Manifest пишутся по очереди без crash-safety (атомарный commit — этап 3).
-    auto writer = impl_->storage->begin_snapshot(impl_->verified.generation, std::nullopt);
-    writer->put_object(id, encoded);
-    impl_->commit_manifest(*writer, leaves);
-
-    impl_->verified.objects.insert(pos, std::move(obj));
-    impl_->verified.leaves = std::move(leaves);
+    impl_->transaction([&] {
+        do {
+            impl_->backends.random->fill(MutableByteView(id));
+        } while (std::any_of(impl_->verified.objects.begin(), impl_->verified.objects.end(),
+                             [&](const auto& o) { return o.file_id == id; }));
+        core::ChangeSet cs;
+        cs.added.push_back(core::encrypt_object(*impl_->backends.random, impl_->kek.view(),
+                                                impl_->trusted_state.storage_uuid, id, filename, data));
+        core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).commit(impl_->verified, cs);
+    });
     return id;
 }
 
@@ -200,14 +173,12 @@ ExtractedFile Vault::extract(const FileId& id) {
 }
 
 void Vault::remove(const FileId& id) {
-    auto it = impl_->find(id);
-    std::vector<Hash256> leaves = impl_->verified.leaves;
-    leaves.erase(leaves.begin() + (it - impl_->verified.objects.begin()));
-    auto writer = impl_->storage->begin_snapshot(impl_->verified.generation, std::nullopt);
-    writer->remove_object(id);
-    impl_->commit_manifest(*writer, leaves);
-    impl_->verified.leaves = std::move(leaves);
-    impl_->verified.objects.erase(it);
+    impl_->transaction([&] {
+        impl_->find(id);  // NotFound, если файла нет (в т.ч. после обновления состояния)
+        core::ChangeSet cs;
+        cs.removed.push_back(id);
+        core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).commit(impl_->verified, cs);
+    });
 }
 
 std::vector<ObjectInfo> Vault::list(bool decrypt_names) {
@@ -226,10 +197,17 @@ core::VerifyReport Vault::verify() {
     core::StateVerifier verifier(impl_->backends, *impl_->storage, *impl_->trusted);
     core::VerifyReport report = verifier.verify_current();
     impl_->verified = report.state;
+    impl_->trusted_state = impl_->trusted->load_state();
     return report;
 }
 
-std::size_t Vault::garbage_collect() { return 0; }  // этап 3
+std::size_t Vault::garbage_collect() {
+    std::size_t n = 0;
+    impl_->transaction([&] {
+        n = core::CommitProtocol(impl_->backends, *impl_->storage, *impl_->trusted).garbage_collect();
+    });
+    return n;
+}
 
 const core::VerifiedState& Vault::state() const { return impl_->verified; }
 

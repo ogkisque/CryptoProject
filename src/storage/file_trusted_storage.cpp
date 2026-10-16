@@ -1,6 +1,7 @@
 #include <sys/stat.h>
 
 #include "vault/common/error.hpp"
+#include "vault/storage/crash_injection.hpp"
 #include "vault/encoding/trusted_state.hpp"
 #include "vault/storage/fs_util.hpp"
 #include "vault/storage/trusted_storage.hpp"
@@ -55,8 +56,15 @@ public:
         return read_file_secure(dir_ / "keys" / "sig.sk");
     }
 
+    // §28 шаг 8: tmp + fsync, затем rename + fsync(dir). Между ними — crash-точка.
     void update_state(const encoding::TrustedStateV1& state) override {
-        write_file_atomic_durable(state_path(), encoding::encode_trusted_state(state), 0600);
+        fs::path tmp = state_path();
+        tmp += ".tmp";
+        std::error_code ec;
+        fs::remove(tmp, ec);  // остаток прежнего сбоя
+        write_file_durable(tmp, encoding::encode_trusted_state(state), 0600);
+        crash_here(CrashPoint::DuringTrustedUpdate);
+        atomic_rename(tmp, state_path());
     }
 
 private:

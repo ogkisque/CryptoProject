@@ -23,7 +23,7 @@
 | 0. Каркас: структура, интерфейсы, CMake, планы | — | ✅ готово (2026-10-16) |
 | 1. Минимальное хранилище (AES-GCM/KW, ML-KEM, HKDF, CLI) | `docs/stages/01_minimal_vault.md` | ✅ готово (2026-10-16) |
 | 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ✅ готово (2026-10-16) |
-| 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ☐ |
+| 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ✅ готово (2026-10-16) |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ☐ |
 | 5. GPU SHA3 / Merkle (на GPU-машине) | `docs/stages/05_gpu_sha3_merkle.md` | ☐ |
 | 6. GPU ML-KEM / ML-DSA через cuPQC (на GPU-машине) | `docs/stages/06_gpu_pqc.md` | ☐ |
@@ -54,8 +54,8 @@
              │
    ┌─────────┼──────────────────────────────┬───────────────────────────────┐
    │ crypto::CryptoBackends (backends.hpp)  │ storage::IStorageBackend      │ storage::ITrustedStorage
-   │  IHashBackend   SHA3                   │  FlatStorage (M1–M2)          │  trusted/ (ключи + TrustedState)
-   │  IMerkleBackend Merkle                 │  GenerationStorage (M3+)      │
+   │  IHashBackend   SHA3                   │  FlatStorage (M1–M2, не исп.) │  trusted/ (ключи + TrustedState)
+   │  IMerkleBackend Merkle                 │  GenerationStorage (M3+)       │
    │  IKemBackend    ML-KEM-768             │  — недоверенная директория    │
    │  ISigBackend    ML-DSA-65              │    vault/, только байты       │
    │  IRandom                               │                               │
@@ -124,3 +124,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-16 | Ревью этапа 1: исправлено 8 проблем (tmp-файлы в objects/, длина kem.ct, частичный plaintext при ошибке записи в extract, GCM ≥ 2 GiB и др.), добавлены CLI-тесты, всего 49 тестов. Таблица — в `docs/stages/01_minimal_vault.md`. |
 | 2026-10-16 | Этап 2 завершён: Merkle (reference, proofs), ML-DSA-65 (liboqs; derand через внутренние точки mldsa-native), подписанный Manifest, `StateVerifier` шаги 1–6 и 9–12, `vault verify` (VALID/INVALID, `-v`), тесты атак §57 с проверкой `VerifyStep`, ACVP-векторы. Подробности — `docs/stages/02_integrity_state.md`. |
 | 2026-10-16 | Ревью этапа 2: криптографических дефектов нет. Добавлены NIST ACVP для ML-KEM-768 (долг этапа 1) и независимые Python-векторы всего формата v1; выбор storage-backend сведён в одну точку. 101 тест. Подробности — `docs/stages/02_integrity_state.md`, раздел «Ревью». |
+| 2026-10-16 | Этап 3 завершён: `GenerationStorage` (immutable поколения + hardlink), `CommitProtocol` с 6 crash-точками, шаги 7–8 verifier'а (rollback → `Generation`, fork → `ManifestHash`), `flock` на транзакцию, `vault gc`, предупреждения об orphan'ах. Тесты: rollback/fork, crash (CLI + `VAULT_CRASH_POINT`), параллельные `add`. Подробности — `docs/stages/03_rollback_crash_safety.md`. |

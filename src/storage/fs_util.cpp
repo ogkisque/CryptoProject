@@ -1,6 +1,7 @@
 #include "vault/storage/fs_util.hpp"
 
 #include <fcntl.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -122,6 +123,23 @@ void link_or_copy(const fs::path& from, const fs::path& to) {
     if (::link(from.c_str(), to.c_str()) == 0) return;
     Bytes data = read_file(from);
     write_file_durable(to, data);
+}
+
+FileLock::FileLock(const fs::path& path) : fd_(-1) {
+    int fd = ::open(path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) io_fail("cannot open lock file", path);
+    int rc;
+    while ((rc = ::flock(fd, LOCK_EX)) != 0 && errno == EINTR) {}
+    if (rc != 0) {
+        int err = errno;
+        ::close(fd);
+        io_fail("flock failed", path, err);
+    }
+    fd_ = fd;
+}
+
+FileLock::~FileLock() {
+    if (fd_ >= 0) ::close(fd_);  // close снимает flock
 }
 
 }  // namespace vault::storage

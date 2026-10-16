@@ -1,4 +1,4 @@
-// Проверка состояния по docs/format_v1.md §11 (шаги 1-6, 9-12; 7-8 — этап 3).
+// Проверка состояния по docs/format_v1.md §11 (шаги 1-12).
 // Все решения о доверии принимаются здесь; Decaps/расшифрование вызывающий код
 // выполняет только после возврата из verify_current().
 #include "vault/vault/state_verifier.hpp"
@@ -53,7 +53,27 @@ VerifyReport StateVerifier::verify_current() const {
         snap = storage_.read_snapshot(ts.trusted_generation);
         st.kem_ct = storage_.read_kem_ct();
     } catch (const VaultError& e) {
+        // Поколения trusted_generation нет, и все имеющиеся старше -> хранилище откатили (rollback).
+        std::vector<std::uint64_t> gens;
+        try {
+            gens = storage_.list_generations();
+        } catch (const VaultError&) {
+        }
+        if (!gens.empty() && gens.back() < ts.trusted_generation)
+            throw VerificationError(VerifyStep::Generation,
+                                    "rollback: newest generation in storage is " + std::to_string(gens.back()) +
+                                        ", trusted generation is " + std::to_string(ts.trusted_generation));
         throw VerificationError(VerifyStep::LoadSnapshot, e.what());
+    }
+    try {
+        std::vector<std::uint64_t> gens = storage_.list_generations();
+        std::size_t orphans = std::count_if(gens.begin(), gens.end(), [&](auto g) { return g > ts.trusted_generation; });
+        if (orphans > 0)
+            report.warnings.push_back(std::to_string(orphans) + " unconfirmed generation(s) newer than trusted " +
+                                      std::to_string(ts.trusted_generation) + " (leftover of an interrupted commit; run `vault gc`)");
+        if (!storage_.list_incomplete_snapshots().empty())
+            report.warnings.push_back("incomplete snapshot(s) present (leftover of an interrupted commit; run `vault gc`)");
+    } catch (const VaultError&) {
     }
     st.generation = ts.trusted_generation;
     if (st.kem_ct.size() != kMlKem768CiphertextSize)
@@ -103,6 +123,15 @@ VerifyReport StateVerifier::verify_current() const {
     }
     st.manifest = m;
     st.manifest_hash = crypto::manifest_hash(hash, m);
+
+    // --- 7. generation == trusted_generation (откат/подмена поколения) ---
+    if (m.generation != ts.trusted_generation)
+        throw VerificationError(VerifyStep::Generation, "manifest generation " + std::to_string(m.generation) +
+                                                            " differs from trusted generation " +
+                                                            std::to_string(ts.trusted_generation));
+    // --- 8. manifest_hash == trusted_manifest_hash (fork: другой Manifest того же поколения) ---
+    if (!equal(st.manifest_hash, ts.trusted_manifest_hash))
+        throw VerificationError(VerifyStep::ManifestHash, "manifest differs from the one recorded in trusted state");
 
     // --- 9. kem.ct == подписанный kem_ct_hash (ДО любого Decaps) ---
     {

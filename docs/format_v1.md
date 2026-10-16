@@ -174,3 +174,11 @@ Decaps выполняется только после того, как прош�
 * **Привязка `VerifyStep` к ошибкам формата Manifest:** размер `manifest.bin` ≠ 168 → `ManifestParse`; `format_version`/`crypto_suite_id` не поддерживаются или не равны trusted → `FormatVersion`/`CryptoSuite`; размер `manifest.sig` ≠ 3309 → `Signature`; нет `manifest.bin`/`manifest.sig` → `LoadManifest`; размер `kem.ct` ≠ 1088 → `LoadSnapshot`.
 * **Детерминированный ML-DSA (S-1)** реализован через внутренние точки mldsa-native в liboqs (см. журнал этапа 2). Подпись при `rnd = 0^32` — стандартная pure ML-DSA, проверяется публичным `OQS_SIG_verify_with_ctx_str`.
 * **Merkle-proof** содержит `leaf_index`, `leaf_count` и шаги; форма пути выводится из первых двух полей и сверяется с шагами.
+
+## 14. Уточнения, принятые при реализации этапа 3
+
+* **Каталог поколения** содержит `objects/`, `manifest.bin`, `manifest.sig`; `kem.ct` и `.lock` лежат в корне `vault/`. Посторонние файлы внутри `generations/` (кроме `%016x` и `%016x.tmp`) игнорируются при перечислении, но не читаются.
+* **Какое поколение читается:** строго `trusted_generation`. Поколения новее — orphan'ы (предупреждение), старше — кандидаты на `vault gc`.
+* **Rollback:** отсутствие `trusted_generation` при наличии только более старых поколений — `VerifyStep::Generation`.
+* **Orphan'ы при commit:** перед записью N+1 удаляются поколения > N и `*.tmp` (см. журнал этапа 3).
+* **`trusted_state.bin.tmp`** — остаток прерванного обновления anchor; игнорируется при чтении, перезаписывается следующим обновлением.

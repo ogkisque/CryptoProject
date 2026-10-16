@@ -21,6 +21,19 @@ void fsync_path(const fs::path& path);  // файл или директория
 void fsync_dir(const fs::path& dir);
 // rename(2) + fsync родительской директории.
 void atomic_rename(const fs::path& from, const fs::path& to);
+// Эксклюзивная блокировка flock(2) на файле (создаётся при отсутствии) на время жизни объекта.
+// Блокирующая: параллельные транзакции выстраиваются в очередь (§3.3a этапа 3).
+class FileLock {
+public:
+    explicit FileLock(const fs::path& path);
+    ~FileLock();
+    FileLock(const FileLock&) = delete;
+    FileLock& operator=(const FileLock&) = delete;
+
+private:
+    int fd_;
+};
+
 // Создаёт hardlink (объекты immutable); при EXDEV/EPERM — копия + fsync.
 void link_or_copy(const fs::path& from, const fs::path& to);
 

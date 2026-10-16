@@ -9,6 +9,7 @@
 //   M3: + generation == trusted_generation, manifest_hash == trusted_manifest_hash.
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "vault/common/bytes.hpp"
@@ -36,6 +37,8 @@ struct VerifyReport {
     VerifiedState state;
     PhaseProfile profile;          // algorithm / serialization / fs / memcpy
     TimingBreakdown merkle_timing;  // от merkle backend
+    // Не ошибки: например, осиротевшие поколения новее trusted (след crash между publish и trusted update).
+    std::vector<std::string> warnings;
 };
 
 class StateVerifier {

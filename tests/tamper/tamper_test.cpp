@@ -10,6 +10,7 @@
 #include "vault/crypto/domain_hash.hpp"
 #include "vault/encoding/encrypted_file.hpp"
 #include "vault/encoding/manifest.hpp"
+#include "vault/encoding/trusted_state.hpp"
 #include "../integration/test_util.hpp"
 
 using namespace vault;
@@ -98,8 +99,8 @@ protected:
         EXPECT_TRUE(allowed.count(o.step)) << what << ": unexpected step " << to_string(o.step);
     }
 
-    std::filesystem::path manifest_path() const { return vault_dir / "manifest.bin"; }
-    std::filesystem::path sig_path() const { return vault_dir / "manifest.sig"; }
+    std::filesystem::path manifest_path() const { return current_dir() / "manifest.bin"; }
+    std::filesystem::path sig_path() const { return current_dir() / "manifest.sig"; }
 
     void flip_object(const FileId& id, std::size_t off, std::uint8_t mask) {
         Bytes bytes = slurp(object_path(id));
@@ -113,11 +114,18 @@ protected:
     }
 
     // Подписывает manifest НАСТОЯЩИМ ключом хранилища (модель: проверка порядка шагов).
-    void write_manifest_signed(const encoding::ManifestV1& m, const Bytes& sk) {
+    void write_manifest_signed(const encoding::ManifestV1& m, const Bytes& sk, bool update_anchor = false) {
         Bytes enc = encoding::encode_manifest(m);
         auto sig = backends().sig;
         spit(manifest_path(), enc);
         spit(sig_path(), sig->sign(sk, enc, label::kManifestSigContext, std::nullopt));
+        // Модель «ключ подписи скомпрометирован, но trusted state цел» дала бы ManifestHash.
+        // Чтобы дойти до проверок содержимого, anchor подгоняется под новый Manifest.
+        if (update_anchor) {
+            encoding::TrustedStateV1 ts = encoding::decode_trusted_state(slurp(trusted_dir / "trusted_state.bin"));
+            ts.trusted_manifest_hash = crypto::manifest_hash(*backends().hash, m);
+            spit(trusted_dir / "trusted_state.bin", encoding::encode_trusted_state(ts));
+        }
     }
     Bytes real_sig_sk() const { return slurp(trusted_dir / "keys" / "sig.sk"); }
     encoding::ManifestV1 current_manifest() const { return encoding::decode_manifest(slurp(manifest_path())); }
@@ -193,7 +201,7 @@ TEST_F(TamperTest, ObjectFromAnotherVaultRejected) {
     Vault::init(op, backends());
     Vault ov = Vault::open(op, backends());
     FileId oid = ov.add_bytes("x", Bytes(1, 1));
-    Bytes foreign = slurp(other_root / "vault" / "objects" / (to_hex(as_view(oid)) + ".obj"));
+    Bytes foreign = slurp(generation_dir(other_root / "vault", trusted_generation(other_root / "trusted")) / "objects" / (to_hex(as_view(oid)) + ".obj"));
     spit(object_path(oid), foreign);
     expect_step(VerifyStep::ObjectBinding);
 }
@@ -206,7 +214,7 @@ TEST_F(TamperTest, ForeignObjectWithForgedUuidRejected) {
     Vault::init(op, backends());
     Vault ov = Vault::open(op, backends());
     FileId oid = ov.add_bytes("x", Bytes(1, 1));
-    Bytes foreign = slurp(other_root / "vault" / "objects" / (to_hex(as_view(oid)) + ".obj"));
+    Bytes foreign = slurp(generation_dir(other_root / "vault", trusted_generation(other_root / "trusted")) / "objects" / (to_hex(as_view(oid)) + ".obj"));
     Bytes mine = slurp(object_path(a));
     std::copy(mine.begin() + 8, mine.begin() + 24, foreign.begin() + 8);  // storage_uuid
     spit(object_path(oid), foreign);
@@ -335,8 +343,8 @@ TEST_F(TamperTest, ManifestOfAnotherVaultRejected) {
     std::filesystem::path other_root = root / "other";
     VaultPaths op{other_root / "vault", other_root / "trusted"};
     Vault::init(op, backends());
-    spit(manifest_path(), slurp(other_root / "vault" / "manifest.bin"));
-    spit(sig_path(), slurp(other_root / "vault" / "manifest.sig"));
+    spit(manifest_path(), slurp(generation_dir(other_root / "vault", 0) / "manifest.bin"));
+    spit(sig_path(), slurp(generation_dir(other_root / "vault", 0) / "manifest.sig"));
     expect_step(VerifyStep::StorageUuidMismatch);
 }
 
@@ -376,7 +384,7 @@ TEST_F(TamperTest, SignedManifestWithWrongFieldsFailsAtRespectiveStep) {
     auto with = [&](auto&& mutate) {
         encoding::ManifestV1 m = good;
         mutate(m);
-        write_manifest_signed(m, sk);
+        write_manifest_signed(m, sk, true);
     };
     with([](auto& m) { m.file_count += 1; });
     expect_step(VerifyStep::FileCount);
@@ -392,7 +400,7 @@ TEST_F(TamperTest, SignedManifestWithWrongFieldsFailsAtRespectiveStep) {
     expect_step(VerifyStep::CryptoSuite);
     with([](auto& m) { m.format_version = 2; });
     expect_step(VerifyStep::FormatVersion);
-    write_manifest_signed(good, sk);
+    write_manifest_signed(good, sk, true);
     EXPECT_FALSE(check().threw);
 }
 

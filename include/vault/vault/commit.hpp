@@ -34,14 +34,21 @@ public:
     CommitProtocol(const crypto::CryptoBackends& backends, storage::IStorageBackend& storage,
                    storage::ITrustedStorage& trusted);
 
-    // current — результат StateVerifier на поколении N (§28 шаг 1).
-    // Возвращает новое состояние; current после вызова устаревает.
-    CommitResult commit(const VerifiedState& current, const ChangeSet& changes);
+    // current — результат StateVerifier на поколении N == trusted_generation (§28 шаг 1).
+    // При успехе current обновляется на месте до состояния N+1 (повторная проверка не нужна, §34);
+    // при исключении current не меняется. Вызывающий обязан держать блокировку хранилища.
+    // Осиротевшие поколения > N и *.tmp (след прежнего crash) перед записью удаляются:
+    // они не подтверждены trusted state, а их номер понадобится новому поколению.
+    CommitResult commit(VerifiedState& current, const ChangeSet& changes);
 
-    // Начальное поколение 0 при vault init (§31).
-    CommitResult commit_initial(const StorageUuid& storage_uuid, ByteView kem_ct);
+    // Начальное поколение 0 при vault init (§31): публикует пустой подписанный Manifest.
+    // TrustedState здесь НЕ трогается — его создаёт init последним (по manifest_hash из результата).
+    // Ключи передаются явно: доверенной области ещё нет.
+    CommitResult commit_initial(const StorageUuid& storage_uuid, ByteView kem_ct, ByteView kem_pk,
+                                const crypto::SigKeyPair& sig_keys);
 
-    // Удалить все поколения < trusted_generation и orphan *.tmp. Возвращает число удалённых.
+    // Удалить все поколения != trusted_generation (старые и осиротевшие новее trusted) и все *.tmp.
+    // Возвращает число удалённых. Вызывается только явно (`vault gc`), никогда из commit.
     std::size_t garbage_collect();
 
 private:
