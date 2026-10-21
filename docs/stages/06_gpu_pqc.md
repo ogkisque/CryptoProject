@@ -163,3 +163,26 @@ SDK найден (`/home/user/cupqc-sdk-0.6.0-x86_64`), но **конфигур�
 
 **Следующий возможный сбой** (UNVERIFIED): device-link `-dlto` статической `vault_core` вместе с `libcupqc-pk.a`.
 
+### Третий запуск (2026-10-21, коммит `a4caa16`, `--quick` и полный)
+
+**cuPQC собран и подключён** (`01b_cupqc ok`, `VAULT_CUPQC=ON`): подключение как в Makefile примеров NVIDIA сработало, `-dlto` + device-link статической `vault_core` с `libcupqc-pk.a` прошли без ошибок (UNVERIFIED снято).
+
+**Предположения 6.A0 — проверены на устройстве:**
+
+| Предположение | Результат |
+|---|---|
+| Сигнатуры `execute`, раскладка буферов, шаг подписи 3312 | подтверждено: все перекрёстные тесты с liboqs (GPU→CPU и CPU→GPU для ML-KEM и ML-DSA) и кросс-открытие хранилищ gpu↔cpu прошли |
+| Entropy ML-KEM = FIPS 203 `d‖z` (keygen) и `m` (encaps) | **подтверждено**: ACVP keyGen и encapsulation совпали байт-в-байт (`GpuPqc.KemAcvpSeededKeygenAndEncaps` прошёл, а не пропустился) |
+| Entropy ML-DSA keygen = FIPS 204 `ξ` | **подтверждено**: ACVP keyGen байт-в-байт (`GpuPqc.SigAcvpSeededKeygen`) |
+| Context string ML-DSA | калибровка: **`PureEmptyContext`** — cuPQC сам выполняет «pure» обёртку FIPS 204 с **пустым** ctx. Подпись Manifest с контекстом `edu-vault-manifest-v1` на GPU невозможна: в vault одиночные sign/verify Manifest идут на CPU, batch-операции с контекстом честно отказывают (`BackendUnavailable`). **Это ограничение нужно оговорить в отчёте** |
+| Entropy ML-DSA sign = FIPS 204 `rnd` | ещё не проверено: в выборке ACVP sigGen ровно один вектор с пустым ctx; проверит повторный запуск (строка `[cuPQC] ML-DSA sign entropy …` в `cupqc_report.txt`) |
+| Shared memory ML-DSA-65 > 48 КиБ | динамическая shared memory с opt-in работает (тесты подписи прошли) |
+
+**Предварительные замеры (1 полный прогон, RTX 4060):** GPU быстрее `cpu-mt` (12 потоков) начиная с batch ≈ 600 (ML-KEM decaps), ≈ 970 (encaps), ≈ 1850 (ML-KEM keygen), ≈ 240 (ML-DSA keygen); максимум ≈ 1.6–2.25× при batch 10000. На batch = 1 GPU в 40–60 раз медленнее (запуск kernel'а, аллокации и entropy доминируют) — ожидаемо: одиночные операции vault выгоднее на CPU. ML-DSA sign/verify в `full.json` не измерены (контекст Manifest).
+
+| # | Проблема | Исправление |
+|---|---|---|
+| P3 | 2 GPU-теста не учитывали режим `PureEmptyContext`: `SigAcvpVerifyAndDeterministicSign` проверял на GPU только ACVP sigVer с пустым ctx, а в выборке таких нет (`verified == 0`); `BackendEquivalence.MlDsaDeterministic/gpu` подписывал batch с контекстом Manifest и получал (ожидаемый) `BackendUnavailable` | sigVer: все векторы проходят через GPU-backend (неподдерживаемый ctx он проверяет на CPU), GPU-путь дополнительно проверяется на подписях liboqs с пустым ctx; эквивалентность при отказе по контексту сравнивает оба backend'а с пустым ctx |
+| P4 | `cupqc_report.txt` был пуст: в выводе `ctest -V` строки начинаются с номера теста (`223: [cuPQC] …`), а шаблон искал `^\[cuPQC\]`; результаты проверки entropy писались только в `RecordProperty`, которое в лог не попадает | шаблон без якоря; тесты печатают `[cuPQC] … confirmed/REFUTED (N/M ACVP …)` для каждого предположения |
+| P5 | ML-DSA sign/verify на GPU не измеряются с контекстом Manifest | серия `bench/configs/gpu_mldsa_empty_ctx.json` (все backend'ы с пустым ctx) — подхватывается `gpu_run_all.sh` автоматически |
+

@@ -196,7 +196,7 @@ else
   # GPU-тесты отдельно и подробно: строки [cuPQC] ... (режим context string и т.п.) нужны для журнала этапа 6
   if [ "$USE_GPU" = 1 ]; then
     run_step 02a_ctest_gpu ctest --test-dir "$BUILD_DIR" -L gpu -V --timeout 900
-    grep -hE "^\[cuPQC\]|ASSUMPTION|RecordProperty|entropy_layout|mldsa_context_mode" "$LOGS/02a_ctest_gpu.log" >"$OUT/cupqc_report.txt" 2>/dev/null
+    grep -hoE "\[cuPQC\].*|\[note\].*|ASSUMPTION.*" "$LOGS/02a_ctest_gpu.log" "$LOGS/02_ctest.log" 2>/dev/null | sort -u >"$OUT/cupqc_report.txt" 2>/dev/null
   else
     record 02a_ctest_gpu skipped "нет GPU"
   fi

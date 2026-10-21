@@ -116,6 +116,8 @@ TEST_F(GpuPqc, KemAcvpSeededKeygenAndEncaps) {
         if (to_hex(r.ciphertext) != f[3] || to_hex(r.shared_secret.view()) != f[4]) ++refuted;
     }
     RecordProperty("entropy_layout_matches_fips203", refuted == 0 ? "yes" : "no");
+    std::cout << "[cuPQC] ML-KEM entropy = FIPS 203 d||z / m: " << (refuted == 0 ? "confirmed" : "REFUTED") << " ("
+              << total - refuted << "/" << total << " ACVP vectors byte-identical)\n";
     if (refuted > 0)
         GTEST_SKIP() << "[cuPQC] ASSUMPTION REFUTED: seeded entropy is not FIPS 203 d||z / m (" << refuted << "/" << total
                      << " ACVP vectors differ); keys remain valid and interoperable. Seeded GPU runs cannot be byte-compared with CPU.";
@@ -232,16 +234,30 @@ TEST_F(GpuPqc, SigReportsContextModeAndHonoursIt) {
 TEST_F(GpuPqc, SigAcvpVerifyAndDeterministicSign) {
     const gpu::SigContextMode mode = gpu::sig_context_mode(*gpu.sig);
     if (mode == gpu::SigContextMode::Unusable) GTEST_SKIP() << "ML-DSA unusable";
-    int verified = 0;
+    // Все ACVP sigVer проверяются через GPU-backend (результат обязан совпасть с ожидаемым). Векторы с контекстом,
+    // который этот cuPQC не поддерживает (PureEmptyContext), backend честно проверяет на CPU — их не считаем GPU-проверкой.
+    int verified_on_gpu = 0;
     for (const auto& f : read_vectors("mldsa65_acvp.txt", "SIGVER")) {
         const bool expected = f[1] == "1";
         const Bytes ctx_bytes = H(f[4]);
         const std::string ctx(ctx_bytes.begin(), ctx_bytes.end());
-        if (mode == gpu::SigContextMode::PureEmptyContext && !ctx.empty()) continue;
         EXPECT_EQ(gpu.sig->verify(H(f[2]), H(f[3]), ctx, H(f[5])), expected);
-        ++verified;
+        if (mode == gpu::SigContextMode::Internal || ctx.empty()) ++verified_on_gpu;
     }
-    EXPECT_GT(verified, 0);
+    if (mode == gpu::SigContextMode::PureEmptyContext) {
+        // В выборке ACVP (первые 8 векторов группы) у всех sigVer непустой ctx (второй запуск на GPU-машине: 0 проверок
+        // на GPU). Поэтому GPU-путь проверяется на подписях liboqs с пустым ctx: верная проходит, испорченная — нет.
+        for (int i = 0; i < 4; ++i) {
+            crypto::SigKeyPair kp = cpu.sig->keygen(std::nullopt);
+            Bytes msg(kManifestV1Size, static_cast<std::uint8_t>(i));
+            Bytes sig = cpu.sig->sign(kp.secret_key.view(), msg, "", std::nullopt);
+            EXPECT_TRUE(gpu.sig->verify(kp.public_key, msg, "", sig));
+            sig[100 + i] ^= 1;
+            EXPECT_FALSE(gpu.sig->verify(kp.public_key, msg, "", sig));
+            verified_on_gpu += 2;
+        }
+    }
+    EXPECT_GT(verified_on_gpu, 0);
 
     int refuted = 0, total = 0;
     for (const auto& f : read_vectors("mldsa65_acvp.txt", "SIGGEN")) {
@@ -260,6 +276,9 @@ TEST_F(GpuPqc, SigAcvpVerifyAndDeterministicSign) {
         if (to_hex(sig) != f[5]) ++refuted;
     }
     RecordProperty("entropy_layout_matches_fips204_sign", refuted == 0 ? "yes" : "no");
+    std::cout << "[cuPQC] ML-DSA sign entropy = FIPS 204 rnd: "
+              << (total == 0 ? "not checked (no ACVP sigGen vectors usable in this mode)" : refuted == 0 ? "confirmed" : "REFUTED")
+              << " (" << total - refuted << "/" << total << " ACVP signatures byte-identical)\n";
     if (refuted > 0)
         GTEST_SKIP() << "[cuPQC] ASSUMPTION REFUTED: seeded sign entropy is not FIPS 204 rnd (" << refuted << "/" << total
                      << " ACVP signatures differ); verification above still passed.";
@@ -283,6 +302,8 @@ TEST_F(GpuPqc, SigAcvpSeededKeygen) {
         EXPECT_TRUE(cpu.sig->verify(kp.public_key, msg, "", cpu.sig->sign(kp.secret_key.view(), msg, "", std::nullopt)));
     }
     RecordProperty("entropy_layout_matches_fips204_keygen", refuted == 0 ? "yes" : "no");
+    std::cout << "[cuPQC] ML-DSA keygen entropy = FIPS 204 xi: " << (refuted == 0 ? "confirmed" : "REFUTED") << " ("
+              << total - refuted << "/" << total << " ACVP key pairs byte-identical)\n";
     if (refuted > 0)
         GTEST_SKIP() << "[cuPQC] ASSUMPTION REFUTED: seeded keygen entropy is not FIPS 204 xi (" << refuted << "/" << total << " differ)";
 }

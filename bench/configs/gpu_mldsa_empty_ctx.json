@@ -1,0 +1,9 @@
+{
+  "_comment": "ML-DSA sign/verify с ПУСТЫМ context string для всех backend'ов. cuPQC SDK 0.6.0 подписывает только «pure» с пустым ctx (калибровка: PureEmptyContext), поэтому в full.json (ctx Manifest) GPU-точки sign/verify пропускаются. Эта серия даёт сравнимые CPU/GPU замеры той же операции; в vault подпись Manifest с контекстом остаётся на CPU.",
+  "ops": ["mldsa_sign", "mldsa_verify"],
+  "backends": ["cpu", "cpu-mt", "gpu"],
+  "batch_sizes": [1, 10, 100, 1000, 10000],
+  "mldsa_context": "empty",
+  "warmup_runs": 3,
+  "measured_runs": 10
+}

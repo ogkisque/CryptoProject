@@ -1,6 +1,7 @@
 // Эквивалентность backend'ов (этап 4.3): каждый доступный backend даёт те же байты, что reference (cpu).
 // GPU-вариант включается автоматически, если сборка с CUDA и устройство есть (M5/M6).
 #include <gtest/gtest.h>
+#include <iostream>
 
 #include <algorithm>
 #include <random>
@@ -171,12 +172,22 @@ TEST_P(BackendEquivalence, MlDsaDeterministic) {
 
     a.message_size = b.message_size = kManifestV1Size;
     a.messages = b.messages = rand_bytes(rng, n * kManifestV1Size);
-    ref.sig->sign_batch(a, "edu-vault-manifest-v1", ByteView(rnds), nullptr);
-    under.sig->sign_batch(b, "edu-vault-manifest-v1", ByteView(rnds), nullptr);
+    // Контекст Manifest; если backend его не поддерживает в batch (GPU cuPQC в режиме PureEmptyContext — честный
+    // BackendUnavailable вместо подмены), эквивалентность проверяется с пустым ctx на обоих backend'ах.
+    std::string ctx = "edu-vault-manifest-v1";
+    try {
+        under.sig->sign_batch(b, ctx, ByteView(rnds), nullptr);
+    } catch (const VaultError& e) {
+        if (e.code() != ErrorCode::BackendUnavailable) throw;
+        ctx.clear();
+        std::cout << "[note] " << under.sig->name() << ": batch ML-DSA with manifest context unsupported, comparing with empty ctx\n";
+        under.sig->sign_batch(b, ctx, ByteView(rnds), nullptr);
+    }
+    ref.sig->sign_batch(a, ctx, ByteView(rnds), nullptr);
     EXPECT_EQ(a.signatures, b.signatures);
 
-    ref.sig->verify_batch(a, "edu-vault-manifest-v1", nullptr);
-    under.sig->verify_batch(b, "edu-vault-manifest-v1", nullptr);
+    ref.sig->verify_batch(a, ctx, nullptr);
+    under.sig->verify_batch(b, ctx, nullptr);
     EXPECT_EQ(a.verify_ok, b.verify_ok);
     EXPECT_EQ(std::count(b.verify_ok.begin(), b.verify_ok.end(), 1), static_cast<long>(n));
 
@@ -186,8 +197,8 @@ TEST_P(BackendEquivalence, MlDsaDeterministic) {
     a.public_keys = b.public_keys;
     a.messages = b.messages;
     a.signatures = b.signatures;
-    ref.sig->verify_batch(a, "edu-vault-manifest-v1", nullptr);
-    under.sig->verify_batch(b, "edu-vault-manifest-v1", nullptr);
+    ref.sig->verify_batch(a, ctx, nullptr);
+    under.sig->verify_batch(b, ctx, nullptr);
     EXPECT_EQ(a.verify_ok, b.verify_ok);
     EXPECT_EQ(b.verify_ok[3], 0);
     EXPECT_EQ(b.verify_ok[7], 0);
