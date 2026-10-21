@@ -451,8 +451,28 @@ PHASE_COLORS = {"alloc": SLOTS[0], "h2d": SLOTS[1], "kernel": SLOTS[2], "d2h": S
                 "entropy": SLOTS[5], "other": "#c9c8c3"}
 
 
+# Фазы, которые складываются в total. sync в стопку не входит: это время, пока CPU ЖДЁТ GPU, и оно перекрывается
+# с kernel и копированиями — в стопке оно считалось бы дважды (первый полный прогон: столбец 16 MiB × 100 был
+# ~6500 мс при total 3787 мс).
+STACK_PHASES = ["alloc", "h2d", "kernel", "d2h", "entropy"]
+
+
+def phase_shares(dd: pd.DataFrame) -> dict:
+    """Доли фаз от total (в %), по строкам dd. other = total − сумма фаз (сборка staging, запуск, прочее CPU-время).
+    Если фазы перекрываются (double buffering) и их сумма больше total, доли нормируются на эту сумму."""
+    total = dd["total_ms"].to_numpy(dtype=float)
+    phases = {p: dd[f"{p}_ms"].to_numpy(dtype=float) for p in STACK_PHASES}
+    s = sum(phases.values())
+    other = np.maximum(total - s, 0.0)
+    denom = np.maximum(total, s)
+    denom = np.where(denom > 0, denom, 1.0)
+    out = {p: 100.0 * v / denom for p, v in phases.items()}
+    out["other"] = 100.0 * other / denom
+    return out
+
+
 def plot_gpu_phases(agg, out_dir: Path) -> list[Path]:
-    """Stacked bar разбивки времени GPU по фазам. «other» = total - сумма фаз (staging на CPU, перекрытия фаз не учитываются)."""
+    """Stacked bar долей фаз в total GPU (каждый столбец = 100 %); над столбцом — total в мс."""
     plt = _mpl()
     files = []
     gpu = agg[agg["backend"].map(is_gpu)]
@@ -464,27 +484,30 @@ def plot_gpu_phases(agg, out_dir: Path) -> list[Path]:
         fig, axes = plt.subplots(len(backs), 1, figsize=(max(7.0, 0.42 * d.groupby(["object_size", "count"]).ngroups + 3), 3.4 * len(backs) + 0.9), squeeze=False)
         for ax, b in zip(axes[:, 0], backs):
             dd = d[d["backend"] == b].sort_values(["object_size", "count"]).reset_index(drop=True)
-            phases = {p: dd[f"{p}_ms"].to_numpy() for p in PHASES}
-            other = np.maximum(dd["total_ms"].to_numpy() - sum(phases.values()), 0.0)
+            shares = phase_shares(dd)
             bottom = np.zeros(len(dd))
             x = np.arange(len(dd))
-            for p in PHASES + ["other"]:
-                vals = phases[p] if p != "other" else other
+            for p in STACK_PHASES + ["other"]:
+                vals = shares[p]
                 if not np.any(vals > 0):
                     continue
                 ax.bar(x, vals, bottom=bottom, width=0.72, color=PHASE_COLORS[p], edgecolor=SURFACE, linewidth=1.5, label=p)
                 bottom += vals
+            for xi, t in zip(x, dd["total_ms"].to_numpy(dtype=float)):
+                ax.text(xi, 101.5, fmt_num(t), ha="center", va="bottom", fontsize=7, color=INK2, rotation=90)
+            ax.set_ylim(0, 125)
+            ax.set_yticks([0, 25, 50, 75, 100])
             if op in ("merkle_verify",) or op in PQC_OPS:
                 ax.set_xticks(x, [f"{int(c)}" for c in dd["count"]])
                 ax.set_xlabel("число листьев" if op == "merkle_verify" else "batch")
             else:
                 ax.set_xticks(x, [f"{fmt_size(s)}×{int(c)}" for s, c in zip(dd["object_size"], dd["count"])], rotation=60, ha="right")
                 ax.set_xlabel("размер объекта × число объектов")
-            ax.set_ylabel("мс (медиана)")
+            ax.set_ylabel("доля total, %")
             ax.set_title(f"{op} — {b}", color=INK)
             ax.grid(axis="x", visible=False)
             ax.legend(ncol=7, fontsize=8, labelcolor=INK2, loc="upper left")
-        fig.suptitle("Разбивка времени GPU по фазам (alloc, H2D, kernel, D2H, sync, entropy; other = total − сумма фаз)",
+        fig.suptitle("Доли фаз в total GPU (над столбцом — total, мс); other = total − сумма фаз; sync (ожидание CPU) не входит — оно перекрывается с kernel",
                      x=0.01, ha="left", fontsize=10, color=INK)
         fig.tight_layout(rect=(0, 0, 1, 0.96))
         p = out_dir / f"gpu_phases_{op}.png"

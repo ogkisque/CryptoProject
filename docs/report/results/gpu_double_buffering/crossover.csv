@@ -1,0 +1,9 @@
+op,axis,fixed,fixed_value,candidate,baseline,kind,result,x_cross,x_first_win,x_min,x_max,points
+sha3,count,object_size,4096,gpu-double-buffer,cpu-mt,gpu,always,,20000.0,20000.0,50000.0,2
+sha3,count,object_size,65536,gpu-double-buffer,cpu-mt,gpu,always,,20000.0,20000.0,50000.0,2
+sha3,size,count,20000,gpu-double-buffer,cpu-mt,gpu,always,,4096.0,4096.0,65536.0,2
+sha3,size,count,50000,gpu-double-buffer,cpu-mt,gpu,always,,4096.0,4096.0,65536.0,2
+sha3,count,object_size,4096,gpu-single-buffer,cpu-mt,gpu,always,,20000.0,20000.0,50000.0,2
+sha3,count,object_size,65536,gpu-single-buffer,cpu-mt,gpu,never,,,20000.0,50000.0,2
+sha3,size,count,20000,gpu-single-buffer,cpu-mt,gpu,crossover_down,18546.471298083117,4096.0,4096.0,65536.0,2
+sha3,size,count,50000,gpu-single-buffer,cpu-mt,gpu,crossover_down,22751.844558896566,4096.0,4096.0,65536.0,2

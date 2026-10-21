@@ -1,0 +1,30 @@
+gpu_run_all.sh: 2026-10-21T21:00:17Z  хост baikalai-agl-ada-dev-c54620ab  режим full  runs=2
+коммит: 192e2f3
+режим сборки: cuda + cuPQC   GPU-устройство: 1   cuPQC: 1
+время: 1840 s
+
+шаг                       статус детали
+00_env                       ok       1 s
+01_build_cuda_cupqc          ok       31 s
+01_build_cuda_nopqc          skipped  не нужна: сборка с cuPQC прошла
+01b_cupqc                    ok       cuPQC подключён (VAULT_CUPQC=ON)
+01a_flags                    ok       Release: -O3 -DNDEBUG
+02_ctest                     ok       24 s
+02a_ctest_gpu                ok       15 s
+03a_smoke_cpu                ok       0 s
+03b_smoke_gpu                ok       2 s
+03c_smoke_gpu_to_cpu         ok       1 s
+04_bench_quick               ok       3 s
+05_bench_full_run1           ok       582 s
+05_bench_full_run2           ok       581 s
+05a_bench_gpu_alloc_in_total ok       181 s
+05a_bench_gpu_double_buffering ok       72 s
+05a_bench_gpu_hash_strategy  ok       133 s
+05a_bench_gpu_mldsa_empty_ctx ok       34 s
+05a_bench_gpu_pinned_vs_pageable ok       166 s
+06_analyze                   ok       5 s
+06a_analyze_gpu_alloc_in_total ok       2 s
+06a_analyze_gpu_double_buffering ok       1 s
+06a_analyze_gpu_hash_strategy ok       2 s
+06a_analyze_gpu_mldsa_empty_ctx ok       1 s
+06a_analyze_gpu_pinned_vs_pageable ok       3 s

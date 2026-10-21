@@ -316,3 +316,20 @@ def test_bad_inputs_give_clear_errors(tmp_path):
     assert A.main([str(bad), "--out", str(tmp_path / "o")]) == 2
     assert A.main([str(REAL_CSV), "--out", str(tmp_path / "o2"), "--no-plots"]) == 0
     assert not (tmp_path / "o2" / "plots").exists() or not list((tmp_path / "o2" / "plots").glob("*.png"))
+
+
+def test_phase_shares_exclude_sync_and_never_exceed_100_percent():
+    # Реальная точка первого полного прогона (sha3 16 MiB x 100 на GPU): sync (ожидание CPU) перекрывается с kernel;
+    # раньше стопка давала ~6500 мс при total 3787 мс. Вторая строка — double buffering: фазы перекрываются, сумма > total.
+    dd = pd.DataFrame({
+        "total_ms": [3787.4, 63.2],
+        "alloc_ms": [930.1, 0.0], "h2d_ms": [381.8, 75.5], "kernel_ms": [2474.8, 41.3],
+        "d2h_ms": [0.02, 0.0], "sync_ms": [2734.9, 26.9], "entropy_ms": [0.0, 0.0],
+    })
+    s = A.phase_shares(dd)
+    assert "sync" not in s
+    totals = sum(s[p] for p in s)
+    assert all(abs(t - 100.0) < 1e-6 for t in totals)        # каждый столбец ровно 100 %
+    assert s["kernel"][0] == pytest.approx(100 * 2474.8 / 3787.4)  # без перекрытия — доля от total
+    assert s["other"][1] == 0.0                               # перекрытие: other не отрицательный
+    assert s["kernel"][1] == pytest.approx(100 * 41.3 / (75.5 + 41.3))

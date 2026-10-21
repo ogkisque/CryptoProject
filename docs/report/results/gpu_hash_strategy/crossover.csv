@@ -1,0 +1,17 @@
+op,axis,fixed,fixed_value,candidate,baseline,kind,result,x_cross,x_first_win,x_min,x_max,points
+sha3,count,object_size,1024,gpu-thread-per-object,cpu-mt,gpu,crossover,406.4260167811948,1000.0,10.0,10000.0,4
+sha3,count,object_size,65536,gpu-thread-per-object,cpu-mt,gpu,crossover,2876.172673244614,10000.0,10.0,10000.0,4
+sha3,count,object_size,1048576,gpu-thread-per-object,cpu-mt,gpu,never,,,10.0,1000.0,3
+sha3,count,object_size,16777216,gpu-thread-per-object,cpu-mt,gpu,never,,,10.0,100.0,2
+sha3,size,count,10,gpu-thread-per-object,cpu-mt,gpu,never,,,1024.0,16777216.0,4
+sha3,size,count,100,gpu-thread-per-object,cpu-mt,gpu,never,,,1024.0,16777216.0,4
+sha3,size,count,1000,gpu-thread-per-object,cpu-mt,gpu,crossover_down,37116.063657058745,1024.0,1024.0,1048576.0,3
+sha3,size,count,10000,gpu-thread-per-object,cpu-mt,gpu,always,,1024.0,1024.0,65536.0,2
+sha3,count,object_size,1024,gpu-warp-per-object,cpu-mt,gpu,crossover,322.79956511693433,1000.0,10.0,10000.0,4
+sha3,count,object_size,65536,gpu-warp-per-object,cpu-mt,gpu,never,,,10.0,10000.0,4
+sha3,count,object_size,1048576,gpu-warp-per-object,cpu-mt,gpu,never,,,10.0,1000.0,3
+sha3,count,object_size,16777216,gpu-warp-per-object,cpu-mt,gpu,never,,,10.0,100.0,2
+sha3,size,count,10,gpu-warp-per-object,cpu-mt,gpu,never,,,1024.0,16777216.0,4
+sha3,size,count,100,gpu-warp-per-object,cpu-mt,gpu,never,,,1024.0,16777216.0,4
+sha3,size,count,1000,gpu-warp-per-object,cpu-mt,gpu,crossover_down,5946.6100176955915,1024.0,1024.0,1048576.0,3
+sha3,size,count,10000,gpu-warp-per-object,cpu-mt,gpu,crossover_down,2056.7395824385026,1024.0,1024.0,65536.0,2

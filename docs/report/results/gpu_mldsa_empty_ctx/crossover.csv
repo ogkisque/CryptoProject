@@ -1,0 +1,7 @@
+op,axis,fixed,fixed_value,candidate,baseline,kind,result,x_cross,x_first_win,x_min,x_max,points
+mldsa_sign,count,object_size,168,cpu-mt,cpu,threads,always,,1.0,1.0,10000.0,5
+mldsa_sign,count,object_size,168,gpu,cpu,gpu,crossover,15.006357232204754,100.0,1.0,10000.0,5
+mldsa_sign,count,object_size,168,gpu,cpu-mt,gpu,crossover,282.53160769341906,1000.0,1.0,10000.0,5
+mldsa_verify,count,object_size,168,cpu-mt,cpu,threads,always,,1.0,1.0,10000.0,5
+mldsa_verify,count,object_size,168,gpu,cpu,gpu,crossover,23.54007065249576,100.0,1.0,10000.0,5
+mldsa_verify,count,object_size,168,gpu,cpu-mt,gpu,crossover,257.8091999339182,1000.0,1.0,10000.0,5

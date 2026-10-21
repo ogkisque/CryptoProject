@@ -1,0 +1,4 @@
+[cuPQC] ML-DSA context mode: PureEmptyContext
+[cuPQC] ML-DSA keygen entropy = FIPS 204 xi: confirmed (8/8 ACVP key pairs byte-identical)
+[cuPQC] ML-DSA sign entropy = FIPS 204 rnd: confirmed (1/1 ACVP signatures byte-identical)
+[cuPQC] ML-KEM entropy = FIPS 203 d||z / m: confirmed (16/16 ACVP vectors byte-identical)

@@ -9,7 +9,7 @@
 - KEK выводится через HKDF-SHA3-256 из общего секрета ML-KEM-768.
 - Состояние хранилища аутентифицируется деревом SHA3-256 Merkle, Manifest и подписью ML-DSA-65.
 - Rollback и fork обнаруживаются по trusted state anchor. Изменения проходят через crash-safe commit.
-- Исследовательская часть — сравнение CPU и GPU (CUDA/cuPQC, RTX 3050 SM 86) для SHA3/Merkle/ML-KEM/ML-DSA.
+- Исследовательская часть — сравнение CPU и GPU (CUDA/cuPQC) для SHA3/Merkle/ML-KEM/ML-DSA. ТЗ называет RTX 3050 (SM 86); измерения сделаны на RTX 4060 (SM 89). Итоги — `docs/report/README.md`.
 
 **Источники требований (не менять без согласования с автором):**
 - `crypto_project.md` — полная спецификация (§1–§59). Ссылки вида `§N` в коде и документах ведут сюда.
@@ -25,11 +25,11 @@
 | 2. Merkle + Manifest + ML-DSA + `vault verify` | `docs/stages/02_integrity_state.md` | ✅ готово (2026-10-16) |
 | 3. Generations, TrustedState anchor, crash-safe commit | `docs/stages/03_rollback_crash_safety.md` | ✅ готово (2026-10-16) |
 | 4. Абстракция backend'ов, CPU-MT, benchmark framework | `docs/stages/04_backend_abstraction.md` | ✅ готово (2026-10-16) |
-| 5. GPU SHA3 / Merkle — код (часть А, без компиляции CUDA) | `docs/stages/05_gpu_sha3_merkle.md` | ✅ часть А (2026-10-16) |
-| 6. GPU ML-KEM / ML-DSA через cuPQC — код (часть А, без компиляции CUDA) | `docs/stages/06_gpu_pqc.md` | ✅ часть А (2026-10-16) |
-| 7. Анализ и сценарий запуска (часть А) | `docs/stages/07_experiments.md` | ✅ часть А (2026-10-16) |
-| Сборка и запуск на GPU-машине автором (`gpu_run_all.sh --quick`, затем полный) + исправления | `docs/gpu_workflow.md` | ◐ 3 захода: сборка с cuPQC ok, SHA3/Merkle/ML-KEM/ML-DSA keygen измерены; нужен финальный полный прогон |
-| Анализ результатов и выводы (этап 7, часть В) | `docs/stages/07_experiments.md` | ☐ |
+| 5. GPU SHA3 / Merkle | `docs/stages/05_gpu_sha3_merkle.md` | ✅ готово (2026-10-21) |
+| 6. GPU ML-KEM / ML-DSA через cuPQC | `docs/stages/06_gpu_pqc.md` | ✅ готово (2026-10-21) |
+| 7. Анализ и сценарий запуска | `docs/stages/07_experiments.md` | ✅ готово (2026-10-22) |
+| Сборка и запуск на GPU-машине автором + исправления | `docs/gpu_workflow.md` | ✅ 4 захода, финальный прогон `--runs 2` зелёный (2026-10-21) |
+| Анализ результатов и выводы (этап 7, часть В) | `docs/report/README.md` | ✅ готово (2026-10-22) |
 
 Подробный прогресс ведётся в чекбоксах и в «Журнале прогресса» каждого stage-документа.
 
@@ -97,7 +97,7 @@ tools/fakecuda/            заглушки CUDA для scripts/check_cuda_synta
 tests/                     header_check.cpp; unit/ integration/ tamper/ crash/ (есть); gpu/ (CPU==GPU, пропускаются без устройства); vectors/
 bench/                     configs/{quick,full,gpu_*}.json, analysis/ (analyze.py, тесты, fixtures/), results/ (архивы запусков)
 scripts/                   build_cpu.sh, build_gpu.sh, check_gpu_env.sh, check_cuda_syntax.sh, gpu_run_all.sh (весь прогон одним запуском), run_bench.sh
-docs/                      format_v1.md, gpu_workflow.md (работа с GPU без локальной CUDA), gpu_machine.md, stages/01..07, report/ (каркас отчёта; выводы — после запусков)
+docs/                      format_v1.md, gpu_workflow.md (работа с GPU без локальной CUDA), gpu_machine.md, stages/01..07, report/ (итоговый отчёт README.md + results/: анализ и сырые данные финального прогона)
 ```
 
 ## Сборка
@@ -141,3 +141,4 @@ CUPQC_ROOT=/path ./scripts/build_gpu.sh                   # на GPU-машин�
 | 2026-10-21 | Первые запуски на GPU-машине (RTX 4060, SM 8.9 — не RTX 3050 из ТЗ). GPU-код этапа 5 собрался и прошёл тесты с первой попытки, 0 spill'ов во всех kernel'ах; предварительно: kernel SHA3 ~25× быстрее cpu-mt, но total по умолчанию на ~70 % — аллокации pinned-памяти; Merkle verify до 12.7× быстрее cpu-mt. GPU PQC не измерен: относительный `CUPQC_ROOT` → CMake молча собрал заглушки. Исправлено: абсолютный `CUPQC_ROOT` и маркер `VAULT_CUPQC` в сводке, архитектура с устройства, venv для анализа, 2 теста, предполагавшие отсутствие GPU, конфиг double buffering. Подробности — журнал `docs/stages/05_gpu_sha3_merkle.md`. |
 | 2026-10-21 | 2-й заход на GPU: SDK найден, но CMake-конфиг cuPQC SDK 0.6.0 падает (ссылается на не созданные цели `cupqc-hash_static`/`cupqc-ntt_static`). cuPQC теперь подключается как в Makefile примеров NVIDIA (`libcupqc-pk.a` + include), `find_package` — только запасной путь; `build.log` в архиве больше не пустой (все попытки каскада). |
 | 2026-10-21 | 3-й заход на GPU: сборка с cuPQC прошла, `-dlto`/device-link ok. Подтверждено на устройстве: совместимость с liboqs в обе стороны, entropy ML-KEM = FIPS 203 d‖z/m и ML-DSA keygen = ξ (ACVP байт-в-байт). cuPQC ML-DSA работает только с пустым context string (`PureEmptyContext`) — подпись Manifest остаётся на CPU, ограничение для отчёта. GPU PQC быстрее cpu-mt с batch ≈ 240–1850 (до 2.25×). Исправлены 2 теста под этот режим, отчёт `cupqc_report.txt`, добавлена серия `gpu_mldsa_empty_ctx.json`. Подробности — журнал `docs/stages/06_gpu_pqc.md`. |
+| 2026-10-22 | **Проект завершён.** Финальный прогон на GPU (`--runs 2`) полностью зелёный: 229 тестов, все предположения cuPQC об entropy подтверждены ACVP. Итоги: kernel SHA3 ≈ 51–53 GB/s (~20× быстрее 12 потоков CPU), но в честном total (§48) 75–95 % — аллокации и PCIe, поэтому по умолчанию GPU быстрее только однопоточного CPU; с пулом буферов и double buffering — до 1.77× против cpu-mt; Merkle verify до 11.2×; ML-KEM/ML-DSA до 1.5–2.3× с batch ≈ 260–2000; batch = 1 и крупные объекты — CPU. cuPQC ML-DSA без context string — подпись Manifest на CPU. Отчёт — `docs/report/README.md`, данные — `docs/report/results/`. |
