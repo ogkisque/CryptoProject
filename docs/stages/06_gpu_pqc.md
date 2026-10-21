@@ -150,3 +150,16 @@ tests/gpu/gpu_pqc_test.cpp           # на устройстве; GTEST_SKIP б�
 
 GPU ML-KEM/ML-DSA **не проверены**: CMake не нашёл cuPQC из-за относительного `CUPQC_ROOT` (см. журнал этапа 5, G1), и были собраны заглушки. Ни одно предположение 6.A0 (режим context string, раскладка entropy, shared memory ML-DSA-65, `-dlto` с device-link) пока не подтверждено и не опровергнуто. Нужен повторный запуск с исправленным скриптом.
 
+### Второй запуск (2026-10-21, коммит `79a9314`, `--quick`)
+
+SDK найден (`/home/user/cupqc-sdk-0.6.0-x86_64`), но **конфигурация с cuPQC упала** в обеих попытках (`sm_89` и `-arch=native`); каскад собрал вариант без cuPQC, всё остальное зелёное.
+
+Причина — CMake-конфиг самого SDK 0.6.0: `find_package(cupqc)` подключает `cupqc-static-targets.cmake`, а `cupqc-static-targets-release.cmake` ссылается на цели `cupqc-hash_static` / `cupqc-ntt_static`, которые не были созданы (`set_property could not find TARGET cupqc-hash_static`, затем «Some (but not all) targets in this export set were already defined»). Это фатальная ошибка CMake, `QUIET` её не гасит.
+
+| # | Исправление |
+|---|---|
+| P1 | `Cuda.cmake`: основной способ подключения — как в Makefile официальных примеров NVIDIA: `<SDK>/lib/libcupqc-pk.a` + `-I<SDK>/include/cupqc -I<SDK>/include`. `find_package(cupqc)` вызывается только как запасной путь, если стандартной раскладки нет. Поиск библиотеки проверен `cmake -P` на макете раскладки SDK |
+| P2 | `gpu_run_all.sh`: `build.log` в архиве собирался по шаблону `build*.log`, который не совпадал с `01_build_*.log`, и оставался пустым (лог попытки с `-arch=native` не дошёл). Теперь в него идут все попытки каскада подряд, с заголовками |
+
+**Следующий возможный сбой** (UNVERIFIED): device-link `-dlto` статической `vault_core` вместе с `libcupqc-pk.a`.
+

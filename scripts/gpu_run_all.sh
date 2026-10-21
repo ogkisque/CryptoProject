@@ -73,8 +73,14 @@ finish() {
     printf '%-28s %-8s %s\n' "шаг" "статус" "детали"
     printf '%s\n' "${STEP_LINES[@]}"
   } >"$SUMMARY"
-  # build.log в корне архива — первое, что нужно при сбое сборки
-  cat "$LOGS"/build*.log >"$OUT/build.log" 2>/dev/null
+  # build.log в корне архива — первое, что нужно при сбое сборки: ВСЕ попытки каскада подряд, с заголовками
+  # (раньше шаблон build*.log не совпадал с именами 01_build_*.log, и build.log оставался пустым).
+  for f in "$LOGS"/01_build*.log; do
+    [ -f "$f" ] || continue
+    echo "==================== $(basename "$f") ===================="
+    cat "$f"
+    echo
+  done >"$OUT/build.log" 2>/dev/null
   tar -czf "$RESULTS_ROOT/$NAME.tar.gz" -C "$RESULTS_ROOT" "$NAME" 2>/dev/null \
     && echo "архив: $RESULTS_ROOT/$NAME.tar.gz" || echo "не удалось создать архив" >&2
   echo; cat "$SUMMARY"

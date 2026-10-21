@@ -44,18 +44,22 @@ function(vault_attach_cuda target)
     if(CUDAToolkit_VERSION VERSION_LESS 12.8)
       message(WARNING "cuPQC требует CUDA Toolkit >= 12.8 (найден ${CUDAToolkit_VERSION}): GPU ML-KEM/ML-DSA отключены")
     else()
-      # Пакет и цели — по Getting Started: find_package(cupqc) с CMAKE_PREFIX_PATH=<SDK>/cmake, цель cupqc-pk_static.
-      find_package(cupqc CONFIG QUIET HINTS ${CUPQC_ROOT}/cmake ${CUPQC_ROOT} PATH_SUFFIXES cmake)
-      if(cupqc_FOUND AND TARGET cupqc-pk_static)
+      # Основной путь — как Makefile официальных примеров NVIDIA: -I<SDK>/include/cupqc -I<SDK>/include (commondx)
+      # и <SDK>/lib/libcupqc-pk.a. find_package(cupqc) НЕ вызывается первым: в cuPQC SDK 0.6.0 его конфиг падает
+      # фатальной ошибкой CMake (cupqc-static-targets-release.cmake ссылается на не созданные цели
+      # cupqc-hash_static / cupqc-ntt_static; второй запуск на GPU-машине, CMake 3.28), и QUIET её не гасит.
+      find_library(_cupqc_pk_lib NAMES cupqc-pk HINTS ${CUPQC_ROOT}/lib ${CUPQC_ROOT}/lib64 NO_DEFAULT_PATH NO_CACHE)
+      if(_cupqc_pk_lib AND EXISTS ${CUPQC_ROOT}/include/cupqc/pk.hpp)
         set(_have_cupqc ON)
-        target_link_libraries(${target} PRIVATE cupqc-pk_static)
-      else()
-        # Запасной путь, как в Makefile официальных примеров: -I<SDK>/include/cupqc -I<SDK>/include (commondx)
-        # и -L<SDK>/lib -lcupqc-pk.
-        find_library(CUPQC_PK_LIBRARY NAMES cupqc-pk HINTS ${CUPQC_ROOT}/lib ${CUPQC_ROOT}/lib64)
-        if(CUPQC_PK_LIBRARY AND EXISTS ${CUPQC_ROOT}/include/cupqc/pk.hpp)
+        target_link_libraries(${target} PRIVATE ${_cupqc_pk_lib})
+        message(STATUS "cuPQC: ${_cupqc_pk_lib} (подключение как в Makefile примеров NVIDIA)")
+      elseif(EXISTS ${CUPQC_ROOT}/cmake/cupqc-config.cmake)
+        # Запасной путь — CMake-пакет SDK (Getting Started): только если раскладка нестандартная.
+        find_package(cupqc CONFIG QUIET HINTS ${CUPQC_ROOT}/cmake ${CUPQC_ROOT} PATH_SUFFIXES cmake)
+        if(cupqc_FOUND AND TARGET cupqc-pk_static)
           set(_have_cupqc ON)
-          target_link_libraries(${target} PRIVATE ${CUPQC_PK_LIBRARY})
+          target_link_libraries(${target} PRIVATE cupqc-pk_static)
+          message(STATUS "cuPQC: CMake-пакет SDK, цель cupqc-pk_static")
         endif()
       endif()
       if(_have_cupqc)
