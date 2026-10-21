@@ -12,6 +12,9 @@
 # Тестовые хуки (для tests/test_run_all.py): SKIP_BUILD=1 — не собирать, использовать готовый BUILD_DIR;
 # SKIP_CTEST=1 — не запускать ctest; RESULTS_ROOT=<каталог> — куда складывать результаты.
 set -uo pipefail
+# CUPQC_ROOT задаётся относительно каталога, ИЗ КОТОРОГО запущен скрипт: приводим к абсолютному пути до cd.
+# (Первый запуск на GPU-машине: относительный CUPQC_ROOT после cd указывал в никуда, и сборка молча прошла без cuPQC.)
+if [ -n "${CUPQC_ROOT:-}" ]; then CUPQC_ROOT="$(realpath -m -- "$CUPQC_ROOT")"; export CUPQC_ROOT; fi
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
@@ -86,6 +89,15 @@ run_step 00_env bash -c "CUPQC_ROOT='$CUPQC_ROOT' ./scripts/check_gpu_env.sh | t
 
 HAVE_NVCC=0; command -v nvcc >/dev/null 2>&1 && HAVE_NVCC=1
 HAVE_GPU=0; nvidia-smi -L >/dev/null 2>&1 && HAVE_GPU=1
+if [ -n "$CUPQC_ROOT" ] && [ ! -d "$CUPQC_ROOT" ]; then
+  record 00a_cupqc_root fail "CUPQC_ROOT=$CUPQC_ROOT не существует: GPU ML-KEM/ML-DSA не соберутся"
+fi
+# Архитектура по умолчанию — с самого устройства (compute_cap 8.9 -> 89): ТЗ называет RTX 3050 (86), но на
+# GPU-машине может стоять другая карта (первый запуск: RTX 4060, SM 89). VAULT_CUDA_ARCH из окружения важнее.
+if [ -z "${VAULT_CUDA_ARCH:-}" ] && [ "$HAVE_GPU" = 1 ]; then
+  VAULT_CUDA_ARCH="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' .')"
+fi
+VAULT_CUDA_ARCH="${VAULT_CUDA_ARCH:-86}"
 HAVE_CUPQC=0
 BUILD_MODE="cpu"
 BUILD_DIR="${BUILD_DIR:-}"
@@ -104,9 +116,9 @@ elif [ "$HAVE_NVCC" = 1 ]; then
   # Каскад: CUDA + cuPQC -> CUDA без cuPQC -> только CPU. Любой сбой всё равно даёт данные и build.log.
   built=0
   if [ -n "$CUPQC_ROOT" ]; then
-    if run_step 01_build_cuda_cupqc build_in build/gpu -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH="${VAULT_CUDA_ARCH:-86}" -DCUPQC_ROOT="$CUPQC_ROOT" -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
+    if run_step 01_build_cuda_cupqc build_in build/gpu -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH="$VAULT_CUDA_ARCH" -DCUPQC_ROOT="$CUPQC_ROOT" -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
       built=1; BUILD_DIR=build/gpu; BUILD_MODE="cuda + cuPQC"; HAVE_CUPQC=1
-    elif [ "${VAULT_CUDA_ARCH:-86}" != native ]; then
+    elif [ "$VAULT_CUDA_ARCH" != native ]; then
       # Самый вероятный сбой с cuPQC — device-link с LTO (ревью этапа 6). Официальные примеры NVIDIA собираются с
       # -arch=native: пробуем так, прежде чем отказываться от cuPQC (лог первой попытки остаётся в архиве).
       if run_step 01_build_cuda_cupqc_native build_in build/gpu_native -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH=native -DCUPQC_ROOT="$CUPQC_ROOT" -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
@@ -117,7 +129,7 @@ elif [ "$HAVE_NVCC" = 1 ]; then
     record 01_build_cuda_cupqc skipped "CUPQC_ROOT не задан"
   fi
   if [ $built = 0 ]; then
-    if run_step 01_build_cuda_nopqc build_in build/gpu_nopqc -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH="${VAULT_CUDA_ARCH:-86}" -DCUPQC_ROOT= -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
+    if run_step 01_build_cuda_nopqc build_in build/gpu_nopqc -DVAULT_ENABLE_CUDA=ON -DVAULT_CUDA_ARCH="$VAULT_CUDA_ARCH" -DCUPQC_ROOT= -DVAULT_CUDA_PTXAS_VERBOSE=ON; then
       built=1; BUILD_DIR=build/gpu_nopqc; BUILD_MODE="cuda без cuPQC"
     fi
   else
@@ -129,6 +141,17 @@ elif [ "$HAVE_NVCC" = 1 ]; then
     fi
   fi
   [ $built = 0 ] && { BUILD_DIR=""; BUILD_MODE="сборка не удалась"; }
+  # Успешная сборка ещё не значит, что cuPQC подключён: CMake при ненайденном SDK собирает заглушки.
+  # Истину сообщает маркер VAULT_CUPQC=ON|OFF из cmake/Cuda.cmake.
+  if [ "$HAVE_CUPQC" = 1 ]; then
+    if grep -q "VAULT_CUPQC=ON" "$LOGS"/01_build_cuda_cupqc*.log 2>/dev/null; then
+      record 01b_cupqc ok "cuPQC подключён (VAULT_CUPQC=ON)"
+    else
+      HAVE_CUPQC=0
+      BUILD_MODE="cuda без cuPQC (CMake не нашёл SDK)"
+      record 01b_cupqc fail "CUPQC_ROOT=$CUPQC_ROOT, но CMake не нашёл cuPQC: GPU ML-KEM/ML-DSA не измерены; см. 'cuPQC не найден' в build.log"
+    fi
+  fi
 else
   BUILD_DIR=build/cpu
   run_step 01_build_cpu build_in build/cpu -DVAULT_ENABLE_CUDA=OFF && BUILD_MODE="cpu (nvcc не найден)" || { BUILD_DIR=""; BUILD_MODE="сборка не удалась"; }
@@ -243,12 +266,18 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------------- 6. анализ
-if [ ${#ANALYZE_CSVS[@]} -gt 0 ]; then
-  run_step 06_analyze python3 -W ignore bench/analysis/analyze.py "${ANALYZE_CSVS[@]}" --out "$OUT/analysis"
+# Python: .venv проекта, если есть (системные pandas и pip-numpy бывают бинарно несовместимы — первый запуск
+# на GPU-машине: "numpy.dtype size changed"), иначе python3.
+PY=python3
+[ -x "$ROOT/.venv/bin/python" ] && PY="$ROOT/.venv/bin/python"
+if [ ${#ANALYZE_CSVS[@]} -gt 0 ] && ! "$PY" -W ignore -c "import pandas, matplotlib" >"$LOGS/06_python_check.log" 2>&1; then
+  record 06_analyze fail "$PY не импортирует pandas/matplotlib (см. logs/06_python_check.log); исправить: python3 -m venv .venv && .venv/bin/pip install -r bench/analysis/requirements.txt. Сырые CSV в архиве"
+elif [ ${#ANALYZE_CSVS[@]} -gt 0 ]; then
+  run_step 06_analyze "$PY" -W ignore bench/analysis/analyze.py "${ANALYZE_CSVS[@]}" --out "$OUT/analysis"
   for csv in "$OUT"/results_gpu_*.csv; do
     [ -f "$csv" ] || continue
     n="$(basename "$csv" .csv)"
-    run_step "06a_analyze_${n#results_}" python3 -W ignore bench/analysis/analyze.py "$csv" --out "$OUT/analysis_${n#results_}"
+    run_step "06a_analyze_${n#results_}" "$PY" -W ignore bench/analysis/analyze.py "$csv" --out "$OUT/analysis_${n#results_}"
   done
 else
   record 06_analyze skipped "нет CSV с результатами"

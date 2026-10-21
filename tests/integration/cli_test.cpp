@@ -5,6 +5,8 @@
 #include <cstdlib>
 
 #include "test_util.hpp"
+#include "vault/common/error.hpp"
+#include "vault/crypto/backends.hpp"
 
 using namespace vault;
 using namespace vault::testing;
@@ -113,8 +115,21 @@ TEST_F(CliTest, BackendFlagAndThreadsGiveSameResult) {
     EXPECT_EQ(run("--backend cpu-mt verify"), 0);
     EXPECT_EQ(run("--backend cpu-mt extract " + id + " -o r.bin"), 0);
     EXPECT_EQ(slurp(root / "r.bin"), Bytes(1000, 3));
-    EXPECT_EQ(run("--backend gpu verify"), 1);  // без CUDA: BackendUnavailable
-    EXPECT_NE(read_text("err.txt").find("gpu backend"), std::string::npos);
+    // gpu: на машине без CUDA/устройства — BackendUnavailable (код 1); на GPU-машине — тот же VALID.
+    bool gpu_available = true;
+    try {
+        crypto::BackendConfig bc;
+        bc.kind = crypto::BackendKind::Gpu;
+        (void)crypto::make_backends(bc);
+    } catch (const VaultError&) {
+        gpu_available = false;
+    }
+    if (gpu_available) {
+        EXPECT_EQ(run("--backend gpu verify"), 0);
+    } else {
+        EXPECT_EQ(run("--backend gpu verify"), 1);
+        EXPECT_NE(read_text("err.txt").find("gpu backend"), std::string::npos);
+    }
 }
 
 TEST_F(CliTest, VerbosePrintsPhaseProfiles) {

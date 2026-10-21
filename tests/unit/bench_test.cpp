@@ -154,14 +154,20 @@ TEST(Benchmark, RunsAllOpsSkipsOversizedAndUnavailableBackends) {
     EXPECT_EQ(recs.size(), 2u * 2 * 3 * 2 + 2 * 3 + 2 * 3 * 6);
     std::size_t measured = 0, over = 0, gpu_skipped = 0;
     for (const auto& r : recs) {
-        if (r.backend == "gpu" && !crypto::gpu_backend_compiled()) {
-            EXPECT_TRUE(r.skipped);
-            // oversize-комбинации пропускаются раньше проверки backend'а
-            EXPECT_TRUE(r.skip_reason == "exceeds max_total_bytes" ||
-                        r.skip_reason.find("backend unavailable") != std::string::npos)
-                << r.skip_reason;
-            ++gpu_skipped;
-            continue;
+        if (r.backend == "gpu") {
+            // Без CUDA/устройства gpu-набор недоступен целиком; на GPU-машине без cuPQC PQC-компоненты — CPU-fallback
+            // (пропуск, а не CPU-замер под именем gpu); oversize-комбинации пропускаются раньше проверки backend'а.
+            // Измеренные gpu-строки (GPU-машина) проверяются общими проверками ниже.
+            if (!crypto::gpu_backend_compiled()) EXPECT_TRUE(r.skipped);
+            if (r.skipped) {
+                EXPECT_TRUE(r.skip_reason == "exceeds max_total_bytes" ||
+                            r.skip_reason.find("backend unavailable") != std::string::npos ||
+                            r.skip_reason.find("cpu fallback") != std::string::npos ||
+                            r.skip_reason.find("not supported by backend") != std::string::npos)
+                    << r.skip_reason;
+                ++gpu_skipped;
+                continue;
+            }
         }
         if (r.skipped) {
             EXPECT_EQ(r.skip_reason, "exceeds max_total_bytes");

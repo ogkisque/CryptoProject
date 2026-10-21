@@ -8,6 +8,11 @@
 
 find_package(CUDAToolkit 12.0 REQUIRED)
 
+# find_package(cupqc) учитывает CUPQC_ROOT как <Package>_ROOT (без этого CMake >= 3.27 предупреждает CMP0144).
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 NEW)
+endif()
+
 # CUDA-исходники добавляются прямо в цель (vault_core), см. комментарий в корневом CMakeLists.txt.
 function(vault_attach_cuda target)
   file(GLOB _gpu_cu  CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/cuda/src/*.cu)
@@ -26,6 +31,12 @@ function(vault_attach_cuda target)
     set(_pqc_sources_present ON)
   elseif(CUPQC_ROOT)
     message(WARNING "CUPQC_ROOT задан, но cuda/src/gpu_{kem,sig}_backend.cu ещё нет (этап 6): cuPQC не подключается")
+  endif()
+  if(CUPQC_ROOT)
+    # Относительный путь из командной строки зависит от каталога запуска — приводим к абсолютному сразу,
+    # чтобы диагностика ниже показывала, где именно искали (первый запуск на GPU-машине: SDK не нашёлся из-за
+    # относительного CUPQC_ROOT, а сборка молча прошла без cuPQC).
+    get_filename_component(CUPQC_ROOT "${CUPQC_ROOT}" ABSOLUTE)
   endif()
   if(CUPQC_ROOT AND _pqc_sources_present)
     # Требования cuPQC-PK (docs.nvidia.com/cuda/cupqc/introduction/requirements.html): CUDA Toolkit и nvcc >= 12.8,
@@ -58,8 +69,25 @@ function(vault_attach_cuda target)
     message(STATUS "cuPQC: найден, GPU ML-KEM/ML-DSA включены")
     target_compile_definitions(${target} PUBLIC VAULT_HAS_CUPQC=1)
   else()
-    message(WARNING "cuPQC не найден (CUPQC_ROOT='${CUPQC_ROOT}'): GPU ML-KEM/ML-DSA недоступны; SHA3/Merkle на GPU собираются")
+    # Диагностика: что из ожидаемой раскладки SDK (Getting Started) есть на диске.
+    set(_diag "")
+    if(CUPQC_ROOT)
+      foreach(_p "" "/cmake" "/include/cupqc/pk.hpp" "/include/commondx" "/lib/libcupqc-pk.a")
+        if(EXISTS "${CUPQC_ROOT}${_p}")
+          string(APPEND _diag "\n    есть:  ${CUPQC_ROOT}${_p}")
+        else()
+          string(APPEND _diag "\n    НЕТ:   ${CUPQC_ROOT}${_p}")
+        endif()
+      endforeach()
+    endif()
+    message(WARNING "cuPQC не найден (CUPQC_ROOT='${CUPQC_ROOT}'): GPU ML-KEM/ML-DSA недоступны; SHA3/Merkle на GPU собираются${_diag}")
     list(FILTER _gpu_cu EXCLUDE REGEX ".*/gpu_(kem|sig)_backend\\.cu$")
+  endif()
+  # Машиночитаемый маркер для scripts/gpu_run_all.sh: успешная сборка ещё не значит, что cuPQC подключён.
+  if(_have_cupqc)
+    message(STATUS "VAULT_CUPQC=ON")
+  else()
+    message(STATUS "VAULT_CUPQC=OFF")
   endif()
 
   target_sources(${target} PRIVATE ${_gpu_cu} ${_gpu_cpp})
